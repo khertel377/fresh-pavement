@@ -1,0 +1,36 @@
+{
+  "_note": "Access classification rules. Processed by scripts/network/access.js. First matching rule wins.",
+
+  "_not_rideable": "Conditions that make a way not rideable by bike.",
+  "not_rideable_bicycle":  ["no", "dismount"],
+  "not_rideable_highway":  ["steps", "corridor", "elevator", "bridleway"],
+  "not_rideable_footway":  ["sidewalk", "crossing"],
+  "not_rideable_service":  ["driveway", "parking_aisle", "drive-through"],
+  "not_rideable_access":   ["private", "no", "customers", "delivery", "agricultural", "forestry"],
+  "bicycle_override_access": ["yes", "designated", "permissive"],
+
+  "_car_free": "Conditions that mark a way as car-free (→ ride_class=path, lts=1, confidence=high).",
+  "car_free_motor_vehicle": ["no"],
+  "car_free_vehicle":       ["no"],
+  "car_free_highway":       ["cycleway", "path", "track"],
+
+  "_unpaved": "Surface values that flag a way as unpaved (rideable by bike but not for skating).",
+  "unpaved_surfaces": [
+    "gravel", "dirt", "ground", "grass", "sand", "unpaved",
+    "fine_gravel", "compacted", "wood", "woodchips"
+  ],
+
+  "_restricted_areas": "OSM area tag pairs whose interior edges are rideable=restricted unless the way itself says bicycle=yes|designated|permissive. Requires data/osm/areas.ndjson from npm run network:extract-areas (not yet implemented — way-level tags cover the common cases).",
+  "restricted_area_tags": [
+    { "key": "leisure",   "value": "golf_course" },
+    { "key": "landuse",   "value": "cemetery" },
+    { "key": "amenity",   "value": "grave_yard" },
+    { "key": "tourism",   "value": "zoo" },
+    { "key": "tourism",   "value": "theme_park" },
+    { "key": "leisure",   "value": "garden" },
+    { "key": "aeroway",   "value": "aerodrome" },
+    { "key": "landuse",   "value": "military" },
+    { "key": "amenity",   "value": "prison" },
+    { "key": "leisure",   "value": "stadium" }
+  ]
+}

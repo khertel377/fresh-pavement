@@ -359,7 +359,7 @@ async function main() {
     if (r.match_rate >= 90) console.log(`  ✓ ${src}: ${r.match_rate}% match rate`);
   }
 
-  console.log('\nRun: npm run network:lts');
+  console.log('\nRun: npm run network:access');
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

@@ -488,7 +488,7 @@ function paint() {
   const showNetwork = layerMode === 'stress' || layerMode === 'facility';
   const showRide   = layerMode === 'ride';
 
-  const rideLayerIds = ['ride-fresh-glow','ride-solid','ride-path-casing','ride-fresh-hl','ride-hit'];
+  const rideLayerIds = ['ride-fresh-glow','ride-solid','ride-path-casing','ride-fresh-hl','ride-restricted','ride-hit'];
 
   if (hasPave) {
     for (const id of ['seg','seg-glow','hit']) map.setLayoutProperty(id,'visibility',showSmooth?'visible':'none');
@@ -699,7 +699,7 @@ map.on('load', async () => {
       // Fresh glow — blurred wide layer (z13+, class-colored at 50%, blur 4)
       map.addLayer({...SRC, id:'ride-fresh-glow',
         minzoom: 13,
-        filter:['==',['get','surface'],'fresh'],
+        filter:['all',['==',['get','surface'],'fresh'],['!=',['get','rideable'],'no']],
         layout:{'line-cap':'round',visibility:'none'},
         paint:{
           'line-width': zoomByClass({path:pathW, lane:laneW}, rideW, 2),
@@ -714,7 +714,7 @@ map.on('load', async () => {
       // Path casing — dark tube, only from z13
       map.addLayer({...SRC, id:'ride-path-casing',
         minzoom: 13,
-        filter:['==',['get','ride_class'],'path'],
+        filter:['all',['==',['get','ride_class'],'path'],['!=',['get','rideable'],'no']],
         layout:{'line-cap':'round','line-join':'round',visibility:'none'},
         paint:{
           'line-width': casingW,
@@ -722,9 +722,9 @@ map.on('load', async () => {
           'line-opacity': 1,
         }});
 
-      // Solid layer — all classes, all surfaces, line-opacity:1 (no dots)
-      // At z≥14 fair/rough edges render BG so grain sprites show through cleanly
+      // Solid layer — rideable edges only (rideable=no excluded; null treated as yes for old tiles)
       map.addLayer({...SRC, id:'ride-solid',
+        filter:['!=',['get','rideable'],'no'],
         layout:{'line-cap':'round','line-join':'round',visibility:'none'},
         paint:{
           'line-width': classW,
@@ -734,13 +734,19 @@ map.on('load', async () => {
 
       // Fresh highlight — thin bright line on top
       map.addLayer({...SRC, id:'ride-fresh-hl',
-        filter:['==',['get','surface'],'fresh'],
+        filter:['all',['==',['get','surface'],'fresh'],['!=',['get','rideable'],'no']],
         layout:{'line-cap':'round',visibility:'none'},
         paint:{
           'line-width': 1.5,
           'line-color': dim('#efffee', ['*',confOpacityExpr,0.55]),
           'line-opacity': 1,
         }});
+
+      // Restricted paths — faint grey hairline (visible in Ride view for audit; not shown in Facilities)
+      map.addLayer({...SRC, id:'ride-restricted',
+        filter:['==',['get','rideable'],'restricted'],
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':1.5,'line-color':'#4a4d52','line-opacity':0.6}});
 
       // Invisible click target
       map.addLayer({...SRC, id:'ride-hit',
@@ -845,7 +851,7 @@ map.on('load', async () => {
     map.on('mouseleave','ride-hit',()=>map.getCanvas().style.cursor='');
     map.on('click','ride-hit',e=>{
       if (layerMode !== 'ride') return;
-      const visible = map.queryRenderedFeatures(e.point, {layers:['ride-solid','ride-grain']});
+      const visible = map.queryRenderedFeatures(e.point, {layers:['ride-solid','ride-restricted']});
       const p = (visible[0]||e.features[0]).properties;
 
       const rcClass = p.ride_class || 'calm';
@@ -866,10 +872,17 @@ map.on('load', async () => {
       const bandColor = BAND_COLORS[p.band] || null;
       const bandLabel = BAND_LABELS[p.band] || null;
 
-      const speedNote = p.speed_src === 'default' ? ` (assumed — no data)` :
-                        p.speed_src === 'drcog'   ? ` (DRCOG data)` : '';
-      const confLabel = { high:'Measured data', medium:'Mostly measured', low:'Estimated (default speed)' }[p.confidence] || p.confidence;
+      const carFree   = p.car_free === true || p.car_free === 'true';
+      const speedNote = p.speed_src === 'default' ? ` (assumed)` :
+                        p.speed_src === 'drcog'   ? ` (DRCOG)` : '';
+      const stressDetail = carFree
+        ? `<span style="color:#4ade80;font-size:11px">No cars</span>`
+        : `<span class="k" style="font-size:11px">${p.speed_mph} mph${speedNote} · ${p.lanes} lanes</span>`;
+      const confLabel = carFree ? 'Car-free road' :
+        ({ high:'Measured data', medium:'Mostly measured', low:'Estimated (default speed)' }[p.confidence] || p.confidence);
       const confColor = { high:'#4ade80', medium:'#fbbf24', low:'var(--mute)' }[p.confidence] || 'var(--mute)';
+      const accessHtml = p.rideable === 'restricted'
+        ? `<div class="warn" style="margin-top:6px">${p.access_reason || 'Restricted access'}</div>` : '';
 
       new maplibregl.Popup({maxWidth:'320px'})
         .setLngLat(e.lngLat)
@@ -883,7 +896,7 @@ map.on('load', async () => {
           <div class="pp-row">
             <span class="pp-q">Stress</span>
             <span style="color:${ltsColor}">${ltsHtml}</span>
-            <span class="k" style="font-size:11px">${p.speed_mph} mph${speedNote} · ${p.lanes} lanes</span>
+            ${stressDetail}
           </div>
           <div class="pp-row">
             <span class="pp-q">Surface</span>
@@ -894,6 +907,7 @@ map.on('load', async () => {
             </span>
           </div>
           <div class="pp-conf">Confidence: <span style="color:${confColor}">${confLabel}</span></div>
+          ${accessHtml}
         </div>`)
         .addTo(map);
     });

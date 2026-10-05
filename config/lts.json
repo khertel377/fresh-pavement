@@ -63,5 +63,5 @@
   "metro_bbox": [-105.35, 39.45, -104.55, 39.95],
 
   "_osm_tags_note": "Tags to keep on edges (everything else is stripped to reduce size).",
-  "keep_tags": ["name", "highway", "lanes", "lanes:forward", "lanes:backward", "maxspeed", "oneway", "surface", "smoothness", "cycleway", "cycleway:left", "cycleway:right", "cycleway:both", "bicycle", "parking:lane:left", "parking:lane:right", "sidewalk", "lit", "access"]
+  "keep_tags": ["name", "highway", "lanes", "lanes:forward", "lanes:backward", "maxspeed", "oneway", "surface", "smoothness", "cycleway", "cycleway:left", "cycleway:right", "cycleway:both", "bicycle", "parking:lane:left", "parking:lane:right", "sidewalk", "lit", "access", "motor_vehicle", "motorcar", "vehicle", "golf", "footway"]
 }

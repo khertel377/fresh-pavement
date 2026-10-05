@@ -93,6 +93,8 @@ function osmFacilityType(tags) {
       return CYCLEWAY_TO_FAC[val];
     }
   }
+  // bicycle=designated on a road (no cycleway tag) → treat as neighborhood bikeway at minimum
+  if (tags.bicycle === 'designated') return 'neighborhood_bikeway';
   return null;
 }
 
@@ -205,15 +207,17 @@ const SURF_CONF = {
 };
 const CONF_RANK = { high: 2, medium: 1, low: 0 };
 
-function computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts) {
+function computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts, speed) {
   // LTS confidence
   let lts_conf;
   if (!speed_affects_lts) {
     // Speed/lanes don't matter — confidence depends on how well we know the facility type
     if (facility_src === 'bike_denver') lts_conf = 'high';
     else lts_conf = 'medium'; // OSM infrastructure tags are reliable
-  } else if (speed_src === 'default' || lanes_src === 'default') {
-    lts_conf = 'low';
+  } else if (speed_src === 'default') {
+    lts_conf = 'low'; // unknown speed — can't trust the LTS result
+  } else if (lanes_src === 'default' && speed > 20) {
+    lts_conf = 'low'; // lanes matter at this speed but unknown
   } else if (facility_src === 'osm') {
     lts_conf = 'medium';
   } else {
@@ -237,11 +241,11 @@ function readNDJSON(file) {
 }
 
 function main() {
-  const inFile  = join(ROOT, 'data/network/edges-matched.ndjson');
+  const inFile  = join(ROOT, 'data/network/edges-access.ndjson');
   const outFile = join(ROOT, 'data/network/edges-lts.ndjson');
 
   if (!existsSync(inFile)) {
-    throw new Error(`${inFile} not found. Run: npm run network:conflate`);
+    throw new Error(`${inFile} not found. Run: npm run network:access`);
   }
 
   console.log('Loading edges-matched…');
@@ -260,7 +264,13 @@ function main() {
   const hwSpeedDefault = {};  // highway → count of default-speed edges
 
   const lines = edges.map(edge => {
-    const { lts, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts } = computeLTS(edge);
+    const rideable      = edge.rideable      ?? 'yes';
+    const car_free      = edge.car_free      ?? false;
+    const access_reason = edge.access_reason ?? null;
+
+    const ltsCmp = computeLTS(edge);
+    const { speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts } = ltsCmp;
+    let lts = ltsCmp.lts;
 
     // Resolve pavement band from conflated best_record
     const bestRecord = edge.pavement?.best_record ?? null;
@@ -270,9 +280,16 @@ function main() {
     const pave_basis = scoring?.basis       ?? null;
     const pave_src   = bestRecord?.source   ?? null;
 
-    const ride_class = computeRideClass(facility_type, lts);
-    const surface    = computeSurface(band);
-    const confidence = computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts);
+    let ride_class = computeRideClass(facility_type, lts);
+    const surface  = computeSurface(band);
+    let confidence = computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts, speed);
+
+    // Car-free overrides: these roads have no cars regardless of speed data
+    if (car_free) {
+      lts        = 1;
+      ride_class  = 'path';
+      confidence  = 'high';
+    }
 
     // Tracking
     ltsDist[lts]++;
@@ -311,6 +328,9 @@ function main() {
         skate_score,
         pave_basis,
         pave_src,
+        rideable,
+        car_free,
+        access_reason,
       },
     });
   });

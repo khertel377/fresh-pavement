@@ -8,4 +8,5 @@ public/data/segments.geojson
 data/osm/
 data/network/edges.ndjson
 data/network/edges-matched.ndjson
+data/network/edges-access.ndjson
 data/network/edges-lts.ndjson
