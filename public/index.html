@@ -286,15 +286,43 @@ const FAC_LABELS = {
 };
 
 // ── Ride view colors ──────────────────────────────────────────────────────
+const BG = '#121417'; // map background — used for pre-mixed dimming
+
 const RIDE_COLORS = {
   path:    '#3fd68f',
-  lane:    '#3fd68f',
+  lane:    '#2fb878', // slightly deeper green — distinguishable from path
   bikeway: '#9fe6bf',
   calm:    '#d9d4c7',
   busy:    '#e8a33d',
   hostile: '#e5534b',
   none:    '#3a3f45',
 };
+
+// Pre-mixed color dimming (no line-opacity → no dot artifacts at joins).
+// amountExpr: 0 → BG (invisible), 1 → hex (full color).
+function dim(hex, amountExpr) {
+  return ['interpolate', ['linear'], amountExpr, 0, BG, 1, hex];
+}
+
+// Build a grain sprite: class color filled, holes punched with destination-out.
+function grainSprite(hex, kind) {
+  const w = kind === 'rough' ? 24 : 32, h = 16;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = hex; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-out';
+  let s = (parseInt(hex.slice(1,3),16) + parseInt(hex.slice(3,5),16)) * (kind === 'rough' ? 7 : 3);
+  const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const n = kind === 'rough' ? 14 : 6;
+  const rMin = kind === 'rough' ? 1.4 : 0.8, rMax = kind === 'rough' ? 3.0 : 1.4;
+  for (let i = 0; i < n; i++) {
+    g.beginPath(); g.arc(r() * w, r() * h, rMin + r() * (rMax - rMin), 0, 7); g.fill();
+  }
+  if (kind === 'rough') {
+    for (let i = 0; i < 4; i++) g.clearRect(Math.floor(r() * w), 0, 1 + Math.floor(r() * 2), h);
+  }
+  return g.getImageData(0, 0, w, h);
+}
 
 const RIDE_CLASS_LABELS = {
   path:    'Trail / protected lane',
@@ -340,24 +368,7 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true }), 'top-right');
 
-// ── Canvas grain patterns ──────────────────────────────────────────────
-function makeGrainPattern(density, pixW, pixH) {
-  const canvas = document.createElement('canvas');
-  canvas.width = pixW; canvas.height = pixH;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(pixW, pixH);
-  let seed = (density * 10000) | 0;
-  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0xffffffff; };
-  for (let i = 0; i < pixW * pixH; i++) {
-    if (rand() < density) {
-      // Semi-transparent black → darkens whatever is beneath
-      img.data[i * 4 + 3] = ((0.2 + rand() * 0.35) * 255) | 0;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const data = ctx.getImageData(0, 0, pixW, pixH);
-  return { width: pixW, height: pixH, data: new Uint8ClampedArray(data.data) };
-}
+// (grainSprite defined above near RIDE_COLORS)
 
 function smoothFilter() {
   const hideChip  = document.getElementById('hideChip').checked;
@@ -398,25 +409,49 @@ function rideFilter(rideClass) {
   return f;
 }
 
-// Confidence → base opacity (high:1, medium:0.78, low:0.45)
+// Confidence → amount (used in dim() for color mixing, NOT as line-opacity)
 const confOpacityExpr = ['match',['get','confidence'],'high',1.0,'medium',0.78,'low',0.45,0.35];
 
-// Calm streets fade further at low zoom
-const calmOpacityExpr = ['*', confOpacityExpr,
-  ['interpolate',['linear'],['zoom'],10,0.4,12,0.55,14,1.0]];
+// Surface → amount multiplier
+const surfOpacityExpr = ['match',['get','surface'],'fresh',1.0,'smooth',1.0,'fair',0.82,'rough',0.55,'none',0.25,1.0];
 
-// Surface → opacity multiplier (used below z14 as roughness cue)
-const surfOpacityExpr = ['match',['get','surface'],'fresh',1.0,'smooth',1.0,'fair',0.82,'rough',0.55,'none',0.3,1.0];
+// Calm floor: at z≤12 calm streets never go below 0.45 so the grid stays visible
+const calmFloor = ['interpolate',['linear'],['zoom'],8,0.45,12,0.45,14,0];
+const calmAmount = ['max', ['*', confOpacityExpr, surfOpacityExpr], calmFloor];
 
-// Combined calm surface opacity
-const calmSurfOpacity = ['*', calmOpacityExpr, surfOpacityExpr];
+// Widths — lane/bikeway thinner below z12
+const rideW   = ['interpolate',['linear'],['zoom'],8,0.8,12,1.2,14,2.5,16,5];
+const busyW   = ['interpolate',['linear'],['zoom'],8,1.0,12,1.5,14,3,16,6];
+const laneW   = ['interpolate',['linear'],['zoom'],8,0.8,12,1.5,14,5,16,9];
+const pathW   = ['interpolate',['linear'],['zoom'],8,2,10,3,12,5,14,8,16,14];
+const casingW = ['interpolate',['linear'],['zoom'],8,4,10,5,12,8,14,12,16,20];
 
-// Widths
-const rideW = ['interpolate',['linear'],['zoom'],10,1,12,1.5,14,2.5,16,5];
-const busyW = ['interpolate',['linear'],['zoom'],10,1.2,12,1.8,14,3,16,6];
-const laneW = ['interpolate',['linear'],['zoom'],10,2,12,3,14,5,16,9];
-const pathW = ['interpolate',['linear'],['zoom'],10,3,12,5,14,8,16,14];
-const casingW = ['interpolate',['linear'],['zoom'],10,5,12,8,14,12,16,20];
+// Per-class width for the single combined solid layer
+const classW  = ['match',['get','ride_class'],
+  'path',pathW,'lane',laneW,'bikeway',rideW,'calm',rideW,'busy',busyW,'hostile',busyW, rideW];
+
+// Build the solid color expression for all ride classes.
+// At z≥14, fair/rough features render BG so grain sprites show through cleanly.
+function buildSolidColorExpr(hideStress) {
+  const stressMul = hideStress ? 0.12 : 1;
+  const baseAmt = ['*', confOpacityExpr, surfOpacityExpr];
+  const stressAmt = hideStress ? ['*', baseAmt, stressMul] : baseAmt;
+
+  const makeC = (hex, amtExpr) => ['step', ['zoom'],
+    dim(hex, amtExpr),
+    14, ['case', ['in',['get','surface'],['literal',['fair','rough']]], BG, dim(hex, amtExpr)]
+  ];
+
+  return ['match', ['get','ride_class'],
+    'path',    makeC(RIDE_COLORS.path,    baseAmt),
+    'lane',    makeC(RIDE_COLORS.lane,    baseAmt),
+    'bikeway', makeC(RIDE_COLORS.bikeway, baseAmt),
+    'calm',    makeC(RIDE_COLORS.calm,    calmAmount),
+    'busy',    makeC(RIDE_COLORS.busy,    stressAmt),
+    'hostile', makeC(RIDE_COLORS.hostile, stressAmt),
+    BG
+  ];
+}
 
 function paint() {
   const hasPave    = map.getLayer('seg');
@@ -427,9 +462,7 @@ function paint() {
   const showNetwork = layerMode === 'stress' || layerMode === 'facility';
   const showRide   = layerMode === 'ride';
 
-  const rideLayerIds = ['ride-fresh-glow','ride-none','ride-calm','ride-busy','ride-hostile',
-                        'ride-bikeway','ride-lane','ride-path-casing','ride-path',
-                        'ride-fresh-hl','ride-grain-fair','ride-grain-rough','ride-hit'];
+  const rideLayerIds = ['ride-fresh-glow','ride-solid','ride-path-casing','ride-fresh-hl','ride-grain','ride-hit'];
 
   if (hasPave) {
     for (const id of ['seg','seg-glow','hit']) map.setLayoutProperty(id,'visibility',showSmooth?'visible':'none');
@@ -487,50 +520,23 @@ function paint() {
 function paintRide() {
   const hideStress = document.getElementById('hideStress')?.checked;
   const hideRough  = document.getElementById('hideRough')?.checked;
-  const stressOpacity = hideStress ? 0.12 : 1;
 
-  // Surface-filtered opacity: if hideRough, rough surfaces drop to 10%
-  const roughOpacity = (expr) => hideRough
-    ? ['case',['==',['get','surface'],'rough'],0.1,expr]
-    : expr;
+  // Solid layer: pre-mixed color toward BG (line-opacity stays 1 → no dot artifacts)
+  map.setPaintProperty('ride-solid', 'line-color', buildSolidColorExpr(hideStress));
 
-  // calm
-  map.setPaintProperty('ride-calm','line-opacity',roughOpacity(calmSurfOpacity));
-  map.setFilter('ride-calm',rideFilter('calm'));
+  // Grain layer: show fair/rough unless hidden
+  const grainFilter = hideRough
+    ? ['literal', false]
+    : ['in',['get','surface'],['literal',['fair','rough']]];
+  map.setFilter('ride-grain', grainFilter);
 
-  // busy
-  map.setPaintProperty('ride-busy','line-opacity',
-    roughOpacity(['*',['*',confOpacityExpr,surfOpacityExpr],stressOpacity]));
-  map.setFilter('ride-busy',rideFilter('busy'));
-
-  // hostile
-  map.setPaintProperty('ride-hostile','line-opacity',
-    roughOpacity(['*',['*',confOpacityExpr,surfOpacityExpr],stressOpacity]));
-  map.setFilter('ride-hostile',rideFilter('hostile'));
-
-  // bikeway
-  map.setPaintProperty('ride-bikeway','line-opacity',
-    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
-  map.setFilter('ride-bikeway',rideFilter('bikeway'));
-
-  // lane
-  map.setPaintProperty('ride-lane','line-opacity',
-    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
-  map.setFilter('ride-lane',rideFilter('lane'));
-
-  // path casing + path
-  map.setPaintProperty('ride-path-casing','line-opacity',
-    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
-  map.setPaintProperty('ride-path','line-opacity',
-    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
-  map.setFilter('ride-path-casing',rideFilter('path'));
-  map.setFilter('ride-path',rideFilter('path'));
-
-  // grain overlays — only show at z14+
-  const grainF_fair  = ['all',['==',['get','surface'],'fair'], ...(hideRough?[['literal',false]]:[])];
-  const grainF_rough = ['all',['==',['get','surface'],'rough'],...(hideRough?[['literal',false]]:[])];
-  map.setFilter('ride-grain-fair', grainF_fair);
-  map.setFilter('ride-grain-rough', grainF_rough);
+  // Casing: same confidence-based amount, pre-mixed
+  const casingAmt = ['*', confOpacityExpr, surfOpacityExpr];
+  const casingColor = ['step', ['zoom'],
+    BG,  // hidden below z13 (layer has minzoom:13)
+    13, dim('#0a1a0e', casingAmt)
+  ];
+  map.setPaintProperty('ride-path-casing', 'line-color', casingColor);
 }
 
 function legend() {
@@ -543,7 +549,7 @@ function legend() {
       <div class="ride-matrix">
         <div class="ride-matrix-section">Space &amp; stress (hue)</div>
         <span class="sw" style="background:${RIDE_COLORS.path}"></span><span>${termHtml('shared_use_path','Trail / protected lane')}</span>
-        <span class="sw" style="background:${RIDE_COLORS.lane}"></span><span>${termHtml('painted_lane','Bike lane / buffered lane')}</span>
+        <span class="sw thick" style="background:${RIDE_COLORS.lane}"></span><span>${termHtml('painted_lane','Bike lane / buffered lane')}</span>
         <span class="sw" style="background:${RIDE_COLORS.bikeway}"></span><span>${termHtml('neighborhood_bikeway','Neighborhood bikeway')}</span>
         <span class="sw" style="background:${RIDE_COLORS.calm}"></span><span>Calm street ${termHtml('lts1','LTS 1–2',true)}</span>
         <span class="sw" style="background:${RIDE_COLORS.busy}"></span><span>Busy road ${termHtml('lts3','LTS 3',true)}</span>
@@ -612,9 +618,14 @@ map.on('load', async () => {
   const statusEl = document.getElementById('status');
   const lineW = ['interpolate',['linear'],['zoom'],10,1,13,2.2,16,6];
 
-  // Register grain pattern images
-  map.addImage('grain_fair',  makeGrainPattern(0.22, 32, 8));
-  map.addImage('grain_rough', makeGrainPattern(0.48, 16, 8));
+  // Register per-class grain sprites (destination-out holes, line-opacity:1 — no dot artifacts)
+  for (const [cls, hex] of Object.entries(RIDE_COLORS)) {
+    if (cls === 'none') continue;
+    for (const kind of ['fair', 'rough']) {
+      const img = grainSprite(hex, kind);
+      map.addImage(`grain_${cls}_${kind}`, img, { pixelRatio: 2 });
+    }
+  }
 
   let fc;
   try {
@@ -658,90 +669,66 @@ map.on('load', async () => {
         layout:{visibility:'none'},paint:{'line-width':14,'line-opacity':0}});
 
       // ── Ride view layers (bottom → top) ──────────────────────────────
+      // Fix: line-opacity:1 everywhere; dimming via pre-mixed color → no dot artifacts at joins.
       const SRC = {type:'line',source:'network','source-layer':'network'};
 
-      // Fresh glow — blurred wide layer behind everything
+      // Fresh glow — blurred wide layer (z13+, class-colored at 50%, blur 4)
       map.addLayer({...SRC, id:'ride-fresh-glow',
+        minzoom: 13,
         filter:['==',['get','surface'],'fresh'],
         layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':['*',pathW,3],'line-color':RIDE_COLORS.calm,
-               'line-opacity':['*',confOpacityExpr,0.22],'line-blur':8}});
+        paint:{
+          'line-width': ['match',['get','ride_class'],'path',['*',pathW,2],'lane',['*',laneW,2],['*',rideW,2]],
+          'line-color': ['match',['get','ride_class'],
+            'path',dim(RIDE_COLORS.path,0.5),'lane',dim(RIDE_COLORS.lane,0.5),
+            'bikeway',dim(RIDE_COLORS.bikeway,0.5),'calm',dim(RIDE_COLORS.calm,0.5),
+            'busy',dim(RIDE_COLORS.busy,0.5),'hostile',dim(RIDE_COLORS.hostile,0.5), BG],
+          'line-opacity': 1,
+          'line-blur': 4,
+        }});
 
-      // No-data hairlines
-      map.addLayer({...SRC, id:'ride-none',
-        filter:['==',['get','surface'],'none'],
-        layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':rideW,'line-color':RIDE_COLORS.none,'line-opacity':0.25}});
-
-      // Calm streets
-      map.addLayer({...SRC, id:'ride-calm',
-        filter:['==',['get','ride_class'],'calm'],
+      // Solid layer — all classes, all surfaces, line-opacity:1 (no dots)
+      // At z≥14 fair/rough edges render BG so grain sprites show through cleanly
+      map.addLayer({...SRC, id:'ride-solid',
         layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':rideW,'line-color':RIDE_COLORS.calm,'line-opacity':calmSurfOpacity}});
+        paint:{
+          'line-width': classW,
+          'line-color': buildSolidColorExpr(false),
+          'line-opacity': 1,
+        }});
 
-      // Busy roads
-      map.addLayer({...SRC, id:'ride-busy',
-        filter:['==',['get','ride_class'],'busy'],
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':busyW,'line-color':RIDE_COLORS.busy,
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
-
-      // Hostile roads
-      map.addLayer({...SRC, id:'ride-hostile',
-        filter:['==',['get','ride_class'],'hostile'],
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':busyW,'line-color':RIDE_COLORS.hostile,
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
-
-      // Neighborhood bikeways
-      map.addLayer({...SRC, id:'ride-bikeway',
-        filter:['==',['get','ride_class'],'bikeway'],
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':rideW,'line-color':RIDE_COLORS.bikeway,
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
-
-      // Bike lanes
-      map.addLayer({...SRC, id:'ride-lane',
-        filter:['==',['get','ride_class'],'lane'],
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':laneW,'line-color':RIDE_COLORS.lane,
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
-
-      // Paths — dark casing
+      // Path casing — dark tube, only from z13
       map.addLayer({...SRC, id:'ride-path-casing',
+        minzoom: 13,
         filter:['==',['get','ride_class'],'path'],
         layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':casingW,'line-color':'#0a1a0e',
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+        paint:{
+          'line-width': casingW,
+          'line-color': dim('#0a1a0e', ['*',confOpacityExpr,surfOpacityExpr]),
+          'line-opacity': 1,
+        }});
 
-      // Paths — colored line on top of casing
-      map.addLayer({...SRC, id:'ride-path',
-        filter:['==',['get','ride_class'],'path'],
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{'line-width':pathW,'line-color':RIDE_COLORS.path,
-               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
-
-      // Fresh highlight — thin bright line on top of paths
+      // Fresh highlight — thin bright line on top
       map.addLayer({...SRC, id:'ride-fresh-hl',
         filter:['==',['get','surface'],'fresh'],
         layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':1.5,'line-color':'#efffee',
-               'line-opacity':['*',confOpacityExpr,0.55]}});
+        paint:{
+          'line-width': 1.5,
+          'line-color': dim('#efffee', ['*',confOpacityExpr,0.55]),
+          'line-opacity': 1,
+        }});
 
-      // Grain overlays for fair/rough (canvas pattern, only visible z14+)
-      map.addLayer({...SRC, id:'ride-grain-fair',
-        filter:['==',['get','surface'],'fair'],
-        minzoom:14,
+      // Grain layer — z14+, fair/rough only, class-colored sprite with destination-out holes
+      // line-opacity:1 — holes go to BG (via solid layer rendering BG for fair/rough at z14+)
+      map.addLayer({...SRC, id:'ride-grain',
+        minzoom: 14,
+        filter:['in',['get','surface'],['literal',['fair','rough']]],
         layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':['max',rideW,pathW],'line-pattern':'grain_fair',
-               'line-opacity':['*',confOpacityExpr,0.7]}});
-
-      map.addLayer({...SRC, id:'ride-grain-rough',
-        filter:['==',['get','surface'],'rough'],
-        minzoom:14,
-        layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':['max',rideW,pathW],'line-pattern':'grain_rough',
-               'line-opacity':['*',confOpacityExpr,0.7]}});
+        paint:{
+          'line-width': classW,
+          'line-pattern': ['concat','grain_',['get','ride_class'],'_',['get','surface']],
+          'line-opacity': 1,
+        }});
 
       // Invisible click target
       map.addLayer({...SRC, id:'ride-hit',
@@ -846,8 +833,7 @@ map.on('load', async () => {
     map.on('mouseleave','ride-hit',()=>map.getCanvas().style.cursor='');
     map.on('click','ride-hit',e=>{
       if (layerMode !== 'ride') return;
-      const visible = map.queryRenderedFeatures(e.point,
-        {layers:['ride-path','ride-lane','ride-bikeway','ride-calm','ride-busy','ride-hostile']});
+      const visible = map.queryRenderedFeatures(e.point, {layers:['ride-solid','ride-grain']});
       const p = (visible[0]||e.features[0]).properties;
 
       const rcClass = p.ride_class || 'calm';
