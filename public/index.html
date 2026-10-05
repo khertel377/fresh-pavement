@@ -8,530 +8,743 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3.2.0/dist/pmtiles.js"></script>
 <style>
-  :root{--bg:#0f1113;--panel:rgba(20,22,25,.92);--ink:#eceae6;--mute:#8d8a85;--line:#2a2d31;--accent:#7dd3a8}
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif}
-  #map{position:absolute;inset:0}
-  .panel{position:absolute;top:16px;left:16px;width:300px;max-width:calc(100% - 32px);background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:16px;z-index:2}
-  h1{margin:0 0 2px;font-size:18px;letter-spacing:-.01em}
-  .sub{color:var(--mute);font-size:12px;margin-bottom:14px}
-  .seg{display:grid;gap:4px;background:#1a1d20;padding:4px;border-radius:10px;margin-bottom:8px}
-  .seg.cols2{grid-template-columns:1fr 1fr}
-  .seg.cols3{grid-template-columns:1fr 1fr 1fr}
-  .seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;border-radius:7px;font-size:12px;color:var(--mute)}
-  .seg button.on{background:#2c3035;color:var(--ink)}
-  label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cursor:pointer}
-  .legend{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px}
-  .row{display:flex;align-items:center;gap:8px;margin:3px 0}
-  .sw{width:22px;height:4px;border-radius:2px;flex:none}
-  .stats{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--mute)}
-  .stats b{color:var(--ink);font-weight:600}
-  .status{font-size:12px;color:var(--accent);margin-top:8px}
-  .jump{all:unset;cursor:pointer;font-size:12px;color:var(--accent);margin-top:8px;display:inline-block}
-  .maplibregl-popup-content{background:#17191c;color:var(--ink);border-radius:10px;padding:12px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
-  .maplibregl-popup-tip{border-top-color:#17191c!important;border-bottom-color:#17191c!important}
-  .pp h3{margin:0 0 2px;font-size:14px}.pp .k{color:var(--mute)}
-  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#111;margin:6px 0}
-  .lts-pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;margin-left:6px}
-  .warn{color:#c2703d;font-size:11px;margin-top:4px}
-  @media (max-width:600px){.panel{top:auto;bottom:16px;width:auto;right:16px}}
+/* ── base ───────────────────────────────────────────────────────────── */
+:root{--bg:#0f1113;--panel:rgba(20,22,25,.92);--ink:#eceae6;--mute:#8d8a85;--line:#2a2d31;--accent:#7dd3a8;--sheet-w:420px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif}
+#map{position:absolute;inset:0}
+
+/* ── left panel ─────────────────────────────────────────────────────── */
+.panel{position:absolute;top:16px;left:16px;width:300px;max-width:calc(100% - 32px);background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:16px;z-index:2;max-height:calc(100vh - 32px);overflow-y:auto}
+h1{margin:0 0 2px;font-size:18px;letter-spacing:-.01em}
+.sub{color:var(--mute);font-size:12px;margin-bottom:14px}
+.seg{display:grid;gap:4px;background:#1a1d20;padding:4px;border-radius:10px;margin-bottom:8px}
+.seg.cols2{grid-template-columns:1fr 1fr}
+.seg.cols3{grid-template-columns:1fr 1fr 1fr}
+.seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;border-radius:7px;font-size:12px;color:var(--mute)}
+.seg button.on{background:#2c3035;color:var(--ink)}
+label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cursor:pointer}
+.legend{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px}
+.row{display:flex;align-items:center;gap:8px;margin:3px 0}
+.sw{width:22px;height:4px;border-radius:2px;flex:none}
+.stats{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--mute)}
+.stats b{color:var(--ink);font-weight:600}
+.status{font-size:12px;color:var(--accent);margin-top:8px}
+.jump{all:unset;cursor:pointer;font-size:12px;color:var(--accent);margin-top:8px;display:inline-block}
+.guide-link{all:unset;cursor:pointer;font-size:12px;color:var(--mute);margin-top:10px;display:flex;align-items:center;gap:5px;border-top:1px solid var(--line);padding-top:10px}
+.guide-link:hover{color:var(--ink)}
+
+/* ── popup ─────────────────────────────────────────────────────────── */
+.maplibregl-popup-content{background:#17191c;color:var(--ink);border-radius:10px;padding:12px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.maplibregl-popup-tip{border-top-color:#17191c!important;border-bottom-color:#17191c!important}
+.pp h3{margin:0 0 2px;font-size:14px}.pp .k{color:var(--mute)}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#111;margin:6px 0}
+.lts-pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;margin-left:6px}
+.warn{color:#c2703d;font-size:11px;margin-top:4px}
+
+/* ── inline term ────────────────────────────────────────────────────── */
+.term{all:unset;cursor:pointer;border-bottom:1px dotted var(--mute);display:inline}
+.term:hover,.term:focus-visible{border-bottom-color:var(--accent);color:var(--accent);outline:none}
+.term-i{font-size:10px;vertical-align:super;margin-left:2px;opacity:.7}
+.term:hover .term-i,.term:focus-visible .term-i{opacity:1}
+
+/* ── hover card ─────────────────────────────────────────────────────── */
+#hcard{position:fixed;z-index:200;width:240px;background:#1e2124;border:1px solid var(--line);border-radius:10px;padding:10px 12px;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transition:opacity .12s;font-size:12px}
+#hcard.show{opacity:1}
+#hcard-diagram{margin-bottom:6px}
+#hcard-diagram img{width:100%;height:auto;border-radius:4px}
+#hcard-title{font-weight:600;margin-bottom:2px;font-size:13px}
+#hcard-text{color:var(--mute);line-height:1.35}
+
+/* ── guide sheet (right desktop / bottom mobile) ────────────────────── */
+#guide-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;opacity:0;transition:opacity .2s;pointer-events:none}
+#guide-backdrop.show{opacity:1;pointer-events:auto}
+#guide-sheet{position:fixed;top:0;right:0;bottom:0;width:var(--sheet-w);max-width:100vw;background:#17191c;border-left:1px solid var(--line);z-index:301;overflow-y:auto;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+#guide-sheet.open{transform:translateX(0)}
+#gs-header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#17191c;z-index:1}
+#gs-back{all:unset;cursor:pointer;font-size:18px;line-height:1;color:var(--mute)}
+#gs-back:hover{color:var(--ink)}
+#gs-title{flex:1;font-size:16px;font-weight:600;margin:0}
+#gs-close{all:unset;cursor:pointer;font-size:18px;line-height:1;color:var(--mute)}
+#gs-close:hover{color:var(--ink)}
+#gs-body{padding:16px;flex:1}
+.gs-photo{width:100%;border-radius:8px;margin-bottom:14px;aspect-ratio:16/9;object-fit:cover}
+.gs-diagram{width:100%;margin-bottom:14px;border-radius:6px;background:#1a1d20;padding:8px}
+.gs-section{margin-bottom:14px}
+.gs-label{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.gs-val{font-size:13px;line-height:1.5}
+.gs-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.gs-chip{background:#1e2124;border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:11px}
+.gs-credit{font-size:10px;color:var(--mute);margin-top:-10px;margin-bottom:14px}
+.gs-steps{padding-left:18px;margin:0;font-size:13px;line-height:1.6}
+@media(max-width:600px){
+  #guide-sheet{top:auto;right:0;left:0;bottom:0;width:auto;height:82vh;border-left:none;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(100%)}
+  #guide-sheet.open{transform:translateY(0)}
+  .panel{top:auto;bottom:16px;width:auto;right:16px;left:16px}
+}
+
+/* ── field guide panel ──────────────────────────────────────────────── */
+#guide-panel{display:none;flex-direction:column;flex:1}
+#guide-panel.active{display:flex}
+#gp-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+#gp-back{all:unset;cursor:pointer;font-size:13px;color:var(--mute)}
+#gp-back:hover{color:var(--ink)}
+.gp-cats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.gp-cat{all:unset;cursor:pointer;font-size:11px;padding:4px 10px;border:1px solid var(--line);border-radius:99px;color:var(--mute)}
+.gp-cat.on{background:var(--accent);border-color:var(--accent);color:#111}
+.gp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;overflow-y:auto}
+.gp-card{all:unset;cursor:pointer;background:#1a1d20;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;text-align:left;border:1px solid transparent}
+.gp-card:hover,.gp-card:focus-visible{border-color:var(--accent);outline:none}
+.gp-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;background:#2a2d31}
+.gp-thumb-svg{width:100%;aspect-ratio:4/3;background:#1e2124;display:flex;align-items:center;justify-content:center;padding:8px}
+.gp-thumb-svg img{width:100%;height:100%;object-fit:contain}
+.gp-info{padding:6px 8px}
+.gp-name{font-size:11px;font-weight:600;margin-bottom:2px}
+.gp-oneliner{font-size:10px;color:var(--mute);line-height:1.3}
+#main-panel-content{display:flex;flex-direction:column}
+#main-panel-content.hidden{display:none}
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div class="panel">
-  <h1>Fresh Pavement</h1>
-  <div class="sub">Denver metro — skate &amp; EUC street quality</div>
 
-  <!-- Layer switcher: view mode -->
-  <div class="seg cols3" id="layerMode">
-    <button data-l="smooth" class="on">Smoothness</button>
-    <button data-l="stress">Traffic stress</button>
-    <button data-l="facility">Bike facilities</button>
-  </div>
+<!-- Left panel -->
+<div class="panel" id="panel">
+  <div id="main-panel-content">
+    <h1>Fresh Pavement</h1>
+    <div class="sub">Denver metro — skate &amp; EUC street quality</div>
 
-  <!-- Filters (visible per-mode) -->
-  <div id="filterSmooth">
-    <div class="seg cols2" id="modes">
-      <button data-m="score" class="on">Skate score</button>
-      <button data-m="y0" id="btn-y0">Paved this year</button>
-      <button data-m="y2">Last 3 seasons</button>
-      <button data-m="planned">Planned</button>
+    <div class="seg cols3" id="layerMode">
+      <button data-l="smooth" class="on">Smoothness</button>
+      <button data-l="stress">Traffic stress</button>
+      <button data-l="facility">Bike facilities</button>
     </div>
-    <label class="tog"><input type="checkbox" id="hideChip" checked> Hide chip seal</label>
-    <label class="tog"><input type="checkbox" id="hideMinor"> Hide unscored streets</label>
+
+    <div id="filterSmooth">
+      <div class="seg cols2" id="modes">
+        <button data-m="score" class="on">Skate score</button>
+        <button data-m="y0" id="btn-y0">Paved this year</button>
+        <button data-m="y2">Last 3 seasons</button>
+        <button data-m="planned">Planned</button>
+      </div>
+      <label class="tog"><input type="checkbox" id="hideChip" checked> Hide chip seal</label>
+      <label class="tog"><input type="checkbox" id="hideMinor"> Hide unscored streets</label>
+    </div>
+
+    <div id="filterNetwork" style="display:none">
+      <label class="tog"><input type="checkbox" id="goodToRide"> Good to ride (smooth + low stress)</label>
+      <div style="font-size:11px;color:var(--mute);margin:2px 0 6px 22px">Band ≥ good · LTS ≤ 2</div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+    <div class="stats" id="stats"></div>
+    <button class="jump" id="franklin">↳ Jump to Franklin St (sample)</button>
+    <button class="guide-link" id="open-guide">
+      <span style="font-size:15px">📖</span> What do these mean?
+    </button>
+    <div class="status" id="status">Loading…</div>
   </div>
 
-  <div id="filterNetwork" style="display:none">
-    <label class="tog"><input type="checkbox" id="goodToRide"> Good to ride (smooth + low stress)</label>
-    <div style="font-size:11px;color:var(--mute);margin:2px 0 6px 22px">Band ≥ good · LTS ≤ 2</div>
+  <!-- Field guide panel (swaps in) -->
+  <div id="guide-panel">
+    <div id="gp-header">
+      <button id="gp-back">← Back</button>
+      <span style="font-size:14px;font-weight:600;flex:1;text-align:center">Field Guide</span>
+    </div>
+    <div class="gp-cats" id="gp-cats"></div>
+    <div class="gp-grid" id="gp-grid"></div>
   </div>
-
-  <div class="legend" id="legend"></div>
-  <div class="stats" id="stats"></div>
-  <button class="jump" id="franklin">↳ Jump to Franklin St (sample)</button>
-  <div class="status" id="status">Loading…</div>
 </div>
+
+<!-- Hover card -->
+<div id="hcard" aria-hidden="true">
+  <div id="hcard-diagram"></div>
+  <div id="hcard-title"></div>
+  <div id="hcard-text"></div>
+</div>
+
+<!-- Guide sheet -->
+<div id="guide-backdrop"></div>
+<div id="guide-sheet" role="dialog" aria-modal="true" aria-labelledby="gs-title" hidden>
+  <div id="gs-header">
+    <button id="gs-back" aria-label="Previous entry">‹</button>
+    <h2 id="gs-title"></h2>
+    <button id="gs-close" aria-label="Close guide">✕</button>
+  </div>
+  <div id="gs-body"></div>
+</div>
+
 <script>
-// ---------------------------------------------------------------------------
-// PMTiles protocol registration
-// ---------------------------------------------------------------------------
+// ── PMTiles ──────────────────────────────────────────────────────────────
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol('pmtiles', protocol.tile.bind(protocol));
 
 const NOW = new Date().getFullYear();
 document.getElementById('btn-y0').textContent = `Paved ${NOW}`;
 
+// ── Glossary ─────────────────────────────────────────────────────────────
+let glossary = new Map(); // id → term object
+const GUIDE_BASE = './guide';
+
+async function loadGlossary() {
+  try {
+    const res = await fetch(`${GUIDE_BASE}/glossary.json`);
+    const data = await res.json();
+    for (const t of data.terms) glossary.set(t.id, t);
+  } catch(e) { console.warn('glossary load failed', e); }
+}
+
+// Map from UI keys → glossary ids
+const FAC_TO_GUIDE = {
+  protected_lane: 'protected_lane', buffered_lane: 'buffered_lane',
+  painted_lane: 'painted_lane', neighborhood_bikeway: 'neighborhood_bikeway',
+  sharrow: 'shared_lane', shared_lane: 'shared_lane',
+  shared_use_path: 'shared_use_path', sidepath: 'protected_lane',
+};
+const TREAT_TO_GUIDE = {
+  mill_overlay: 'mill_overlay', reconstruct: 'reconstruct', hipr: 'hipr',
+  chip_seal: 'chip_seal', concrete: 'concrete', slurry_seal: 'slurry_seal',
+  crack_seal: 'crack_seal', reclamite: 'reclamite',
+};
+const LTS_TO_GUIDE = { 1: 'lts1', 2: 'lts2', 3: 'lts3', 4: 'lts4' };
+
+// Build an inline term button HTML string
+function termHtml(id, label, short = false) {
+  const t = glossary.get(id);
+  if (!t) return label;
+  const esc = label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (short) {
+    return `<button class="term" data-guide="${id}" aria-label="${t.term}, tap to learn more">${esc}<span class="term-i" aria-hidden="true">ⓘ</span></button>`;
+  }
+  return `<button class="term" data-guide="${id}">${esc}</button>`;
+}
+
+// ── Map data ─────────────────────────────────────────────────────────────
 const SOURCE_NAMES = { denver: 'Denver DOTI', aurora: 'Aurora', lakewood: 'Lakewood' };
 
 const TREATMENT_NAMES = {
-  mill_overlay: 'Mill &amp; overlay',
-  reconstruct:  'Reconstruct',
-  hipr:         'Hot-in-place recycle',
-  chip_seal:    'Chip seal',
-  concrete:     'Concrete repair',
-  slurry_seal:  'Slurry seal',
-  crack_seal:   'Crack seal',
-  reclamite:    'Reclamite',
+  mill_overlay: 'Mill &amp; overlay', reconstruct: 'Reconstruct',
+  hipr: 'Hot-in-place recycle', chip_seal: 'Chip seal',
+  concrete: 'Concrete repair', slurry_seal: 'Slurry seal',
+  crack_seal: 'Crack seal', reclamite: 'Reclamite',
 };
 
 const BASIS_LABELS = {
-  'treatment':           'Paving treatment record',
+  'treatment': 'Paving treatment record',
   'treatment+condition': 'Paving record + condition survey',
-  'pci':                 'Pavement condition index (PCI)',
-  'oci':                 'Pavement condition index (OCI)',
-  'iri':                 'Roughness survey (IRI)',
-  'pci+iri':             'PCI + roughness survey (IRI)',
-  'rating':              'City condition rating',
+  'pci': 'Pavement condition index (PCI)',
+  'oci': 'Pavement condition index (OCI)',
+  'iri': 'Roughness survey (IRI)',
+  'pci+iri': 'PCI + roughness survey (IRI)',
+  'rating': 'City condition rating',
 };
+const BASIS_GUIDE = { 'pci': 'pci', 'pci+iri': 'pci', 'iri': 'iri', 'oci': 'pci' };
 
 const BAND_COLORS = {
-  fresh:     '#00e8b0',
-  excellent: '#3ee6a0',
-  good:      '#9fd67a',
-  fair:      '#e3c14f',
-  poor:      '#c2703d',
-  very_poor: '#a0422a',
-  failed:    '#7a2020',
+  fresh:'#00e8b0', excellent:'#3ee6a0', good:'#9fd67a',
+  fair:'#e3c14f', poor:'#c2703d', very_poor:'#a0422a', failed:'#7a2020',
 };
 const BAND_LABELS = {
-  fresh:     'Fresh pavement',
-  excellent: 'Excellent — glassy',
-  good:      'Good — smooth',
-  fair:      'Fair — rideable',
-  poor:      'Poor — pick your line',
-  very_poor: 'Very poor — avoid',
-  failed:    'Failed — no',
+  fresh:'Fresh pavement', excellent:'Excellent — glassy', good:'Good — smooth',
+  fair:'Fair — rideable', poor:'Poor — pick your line',
+  very_poor:'Very poor — avoid', failed:'Failed — no',
 };
-const BAND_ORDER = ['fresh', 'excellent', 'good', 'fair', 'poor', 'very_poor', 'failed'];
+const BAND_ORDER = ['fresh','excellent','good','fair','poor','very_poor','failed'];
 
-const LTS_COLORS = { 1: '#4ade80', 2: '#a3e635', 3: '#fbbf24', 4: '#f87171' };
+const LTS_COLORS = { 1:'#4ade80', 2:'#a3e635', 3:'#fbbf24', 4:'#f87171' };
 const LTS_LABELS = {
-  1: 'LTS 1 — comfortable for all',
-  2: 'LTS 2 — suitable for most',
-  3: 'LTS 3 — experienced cyclists',
-  4: 'LTS 4 — high-stress only',
+  1:'LTS 1 — comfortable for all', 2:'LTS 2 — suitable for most',
+  3:'LTS 3 — experienced cyclists', 4:'LTS 4 — high-stress only',
 };
 
 const FAC_COLORS = {
-  shared_use_path:     '#00e8b0',
-  protected_lane:      '#22d3ee',
-  buffered_lane:       '#60a5fa',
-  painted_lane:        '#a78bfa',
-  neighborhood_bikeway:'#34d399',
-  sidepath:            '#6ee7b7',
-  sharrow:             '#94a3b8',
+  shared_use_path:'#00e8b0', protected_lane:'#22d3ee', buffered_lane:'#60a5fa',
+  painted_lane:'#a78bfa', neighborhood_bikeway:'#34d399', sidepath:'#6ee7b7', sharrow:'#94a3b8',
 };
 const FAC_LABELS = {
-  shared_use_path:     'Shared-use path / trail',
-  protected_lane:      'Protected bike lane',
-  buffered_lane:       'Buffered bike lane',
-  painted_lane:        'Painted bike lane',
-  neighborhood_bikeway:'Neighborhood bikeway',
-  sidepath:            'Sidepath',
-  sharrow:             'Sharrow',
+  shared_use_path:'Shared-use path / trail', protected_lane:'Protected bike lane',
+  buffered_lane:'Buffered bike lane', painted_lane:'Painted bike lane',
+  neighborhood_bikeway:'Neighborhood bikeway', sidepath:'Sidepath', sharrow:'Sharrow',
 };
 
-const bandColorExpr = ['match', ['get', 'band'],
-  'fresh',     BAND_COLORS.fresh,
-  'excellent', BAND_COLORS.excellent,
-  'good',      BAND_COLORS.good,
-  'fair',      BAND_COLORS.fair,
-  'poor',      BAND_COLORS.poor,
-  'very_poor', BAND_COLORS.very_poor,
-  'failed',    BAND_COLORS.failed,
-  '#3a3d42'];
+const bandColorExpr = ['match',['get','band'],
+  'fresh',BAND_COLORS.fresh,'excellent',BAND_COLORS.excellent,'good',BAND_COLORS.good,
+  'fair',BAND_COLORS.fair,'poor',BAND_COLORS.poor,'very_poor',BAND_COLORS.very_poor,
+  'failed',BAND_COLORS.failed,'#3a3d42'];
+const ltsColorExpr = ['match',['get','lts'],1,LTS_COLORS[1],2,LTS_COLORS[2],3,LTS_COLORS[3],4,LTS_COLORS[4],'#3a3d42'];
+const facColorExpr = ['match',['get','facility_type'],
+  'shared_use_path',FAC_COLORS.shared_use_path,'protected_lane',FAC_COLORS.protected_lane,
+  'buffered_lane',FAC_COLORS.buffered_lane,'painted_lane',FAC_COLORS.painted_lane,
+  'neighborhood_bikeway',FAC_COLORS.neighborhood_bikeway,'sidepath',FAC_COLORS.sidepath,
+  'sharrow',FAC_COLORS.sharrow,'#3a3d42'];
+const kindColorExpr = ['match',['get','lt_type'],
+  'mill_overlay','#7dd3a8','reconstruct','#7dd3a8','hipr','#8ab4f8',
+  'chip_seal','#e8a87c','concrete','#c9b8f0','#6b6f75'];
 
-const ltsColorExpr = ['match', ['get', 'lts'],
-  1, LTS_COLORS[1],
-  2, LTS_COLORS[2],
-  3, LTS_COLORS[3],
-  4, LTS_COLORS[4],
-  '#3a3d42'];
+let layerMode = 'smooth';
+let mode = 'score';
 
-const facColorExpr = ['match', ['get', 'facility_type'],
-  'shared_use_path',     FAC_COLORS.shared_use_path,
-  'protected_lane',      FAC_COLORS.protected_lane,
-  'buffered_lane',       FAC_COLORS.buffered_lane,
-  'painted_lane',        FAC_COLORS.painted_lane,
-  'neighborhood_bikeway',FAC_COLORS.neighborhood_bikeway,
-  'sidepath',            FAC_COLORS.sidepath,
-  'sharrow',             FAC_COLORS.sharrow,
-  '#3a3d42'];
-
-const kindColorExpr = ['match', ['get', 'lt_type'],
-  'mill_overlay', '#7dd3a8',
-  'reconstruct',  '#7dd3a8',
-  'hipr',         '#8ab4f8',
-  'chip_seal',    '#e8a87c',
-  'concrete',     '#c9b8f0',
-  '#6b6f75'];
-
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-let layerMode = 'smooth'; // smooth | stress | facility
-let mode      = 'score';  // score | y0 | y2 | planned  (smooth sub-mode)
-
-// ---------------------------------------------------------------------------
-// Map
-// ---------------------------------------------------------------------------
+// ── Map ───────────────────────────────────────────────────────────────────
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
-  center: [-104.93, 39.72],
-  zoom: 10.8,
+  center: [-104.93, 39.72], zoom: 10.8,
   attributionControl: { compact: true },
 });
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true }), 'top-right');
 
-// ---------------------------------------------------------------------------
-// Filters
-// ---------------------------------------------------------------------------
 function smoothFilter() {
   const hideChip  = document.getElementById('hideChip').checked;
   const hideMinor = document.getElementById('hideMinor').checked;
   const f = ['all'];
-  if (mode === 'y0')      f.push(['==', ['get', 'lt_year'], NOW]);
-  if (mode === 'y2')      f.push(['all',
-    ['>=', ['coalesce', ['get', 'lt_year'], 0], NOW - 2],
-    ['!=', ['get', 'lt_type'], null]]);
-  if (mode === 'planned') f.push(['!=', ['get', 'pl_year'], null]);
+  if (mode === 'y0') f.push(['==',['get','lt_year'],NOW]);
+  if (mode === 'y2') f.push(['all',['>=',['coalesce',['get','lt_year'],0],NOW-2],['!=',['get','lt_type'],null]]);
+  if (mode === 'planned') f.push(['!=',['get','pl_year'],null]);
   const kf = mode === 'planned' ? 'pl_type' : 'lt_type';
-  if (hideChip)  f.push(['!=', ['get', kf], 'chip_seal']);
-  if (hideMinor && mode === 'score') f.push(['!=', ['get', 'band'], null]);
+  if (hideChip) f.push(['!=',['get',kf],'chip_seal']);
+  if (hideMinor && mode === 'score') f.push(['!=',['get','band'],null]);
   return f;
 }
 
-// Good-to-ride: band in [fresh, excellent, good] AND lts in [1, 2]
-const GOOD_BANDS = ['fresh', 'excellent', 'good'];
+const GOOD_BANDS = ['fresh','excellent','good'];
 function networkFilter() {
-  if (layerMode === 'facility') {
-    return ['!=', ['get', 'facility_type'], null];
-  }
+  if (layerMode === 'facility') return ['!=',['get','facility_type'],null];
   if (document.getElementById('goodToRide')?.checked) {
-    return ['all',
-      ['in', ['get', 'band'], ['literal', GOOD_BANDS]],
-      ['<=', ['get', 'lts'], 2],
-    ];
+    return ['all',['in',['get','band'],['literal',GOOD_BANDS]],['<=',['get','lts'],2]];
   }
-  return ['all']; // show all
+  return ['all'];
 }
 
-// ---------------------------------------------------------------------------
-// Paint / visibility
-// ---------------------------------------------------------------------------
 function paint() {
   const hasPave    = map.getLayer('seg');
   const hasNetwork = map.getLayer('net');
   if (!hasPave || !hasNetwork) return;
 
-  // Show/hide source layers
-  const showSmooth  = layerMode === 'smooth';
-  const showNetwork = !showSmooth;
-
-  for (const id of ['seg', 'seg-glow', 'hit']) {
-    map.setLayoutProperty(id, 'visibility', showSmooth ? 'visible' : 'none');
-  }
-  for (const id of ['net', 'net-glow', 'net-hit']) {
-    map.setLayoutProperty(id, 'visibility', showNetwork ? 'visible' : 'none');
-  }
+  const showSmooth = layerMode === 'smooth';
+  for (const id of ['seg','seg-glow','hit'])     map.setLayoutProperty(id,'visibility',showSmooth?'visible':'none');
+  for (const id of ['net','net-glow','net-hit']) map.setLayoutProperty(id,'visibility',showSmooth?'none':'visible');
 
   if (showSmooth) {
     let color;
     if (mode === 'score') {
       color = bandColorExpr;
-      map.setPaintProperty('seg',      'line-opacity', ['case', ['==', ['get', 'band'], null], 0.22, 0.95]);
-      map.setPaintProperty('seg-glow', 'line-opacity', 0);
+      map.setPaintProperty('seg','line-opacity',['case',['==',['get','band'],null],0.22,0.95]);
+      map.setPaintProperty('seg-glow','line-opacity',0);
     } else if (mode === 'planned') {
-      color = ['match', ['get', 'pl_year'],
-        NOW,     '#f6d365',
-        NOW + 1, '#fda085',
-        NOW + 2, '#f38181',
-        NOW + 3, '#c56cf0',
-        '#7f7fd5'];
-      map.setPaintProperty('seg',      'line-opacity', 0.95);
-      map.setPaintProperty('seg-glow', 'line-opacity', 0.25);
+      color = ['match',['get','pl_year'],NOW,'#f6d365',NOW+1,'#fda085',NOW+2,'#f38181',NOW+3,'#c56cf0','#7f7fd5'];
+      map.setPaintProperty('seg','line-opacity',0.95);
+      map.setPaintProperty('seg-glow','line-opacity',0.25);
     } else {
       color = kindColorExpr;
-      map.setPaintProperty('seg',      'line-opacity', 0.95);
-      map.setPaintProperty('seg-glow', 'line-opacity', 0.25);
+      map.setPaintProperty('seg','line-opacity',0.95);
+      map.setPaintProperty('seg-glow','line-opacity',0.25);
     }
-    map.setPaintProperty('seg',      'line-color', color);
-    map.setPaintProperty('seg-glow', 'line-color', color);
-    map.setFilter('seg',      smoothFilter());
-    map.setFilter('seg-glow', smoothFilter());
+    map.setPaintProperty('seg','line-color',color);
+    map.setPaintProperty('seg-glow','line-color',color);
+    map.setFilter('seg',smoothFilter());
+    map.setFilter('seg-glow',smoothFilter());
   } else {
-    // Network layer
     const color = layerMode === 'facility' ? facColorExpr : ltsColorExpr;
     const filt  = networkFilter();
-    map.setPaintProperty('net',      'line-color', color);
-    map.setPaintProperty('net-glow', 'line-color', color);
-    // Dim unmatched facility edges in facility mode
+    map.setPaintProperty('net','line-color',color);
+    map.setPaintProperty('net-glow','line-color',color);
     const opacity = layerMode === 'facility'
-      ? ['case', ['==', ['get', 'facility_type'], null], 0, 0.92]
-      : 0.88;
-    map.setPaintProperty('net', 'line-opacity', opacity);
-    map.setPaintProperty('net-glow', 'line-opacity',
-      layerMode === 'facility' ? ['case', ['==', ['get', 'facility_type'], null], 0, 0.25] : 0.20);
-    map.setFilter('net',      filt);
-    map.setFilter('net-glow', filt);
+      ? ['case',['==',['get','facility_type'],null],0,0.92] : 0.88;
+    map.setPaintProperty('net','line-opacity',opacity);
+    map.setPaintProperty('net-glow','line-opacity',
+      layerMode === 'facility' ? ['case',['==',['get','facility_type'],null],0,0.25] : 0.20);
+    map.setFilter('net',filt);
+    map.setFilter('net-glow',filt);
   }
-
   legend();
 }
 
-// ---------------------------------------------------------------------------
-// Legend
-// ---------------------------------------------------------------------------
 function legend() {
   const L = document.getElementById('legend');
-  const row = (c, t) => `<div class="row"><span class="sw" style="background:${c}"></span>${t}</div>`;
+  const row = (c, html) => `<div class="row"><span class="sw" style="background:${c}"></span>${html}</div>`;
 
   if (layerMode === 'smooth') {
     if (mode === 'score') {
-      L.innerHTML = BAND_ORDER.map(b => row(BAND_COLORS[b], BAND_LABELS[b])).join('') +
-        row('#3a3d42', '<span style="color:var(--mute)">Unscored</span>') +
-        `<div style="color:var(--mute);margin-top:8px;font-size:11px">Based on paving records and condition surveys. Not yet rider-validated.</div>`;
+      L.innerHTML = BAND_ORDER.map(b => row(BAND_COLORS[b], BAND_LABELS[b])).join('')
+        + row('#3a3d42','<span style="color:var(--mute)">Unscored</span>')
+        + `<div style="color:var(--mute);margin-top:8px;font-size:11px">Based on paving records and condition surveys. Not yet rider-validated.</div>`;
     } else if (mode === 'planned') {
-      L.innerHTML = [NOW, NOW+1, NOW+2, NOW+3]
-        .map((y, i) => row(['#f6d365','#fda085','#f38181','#c56cf0'][i], y)).join('') +
-        row('#7f7fd5', `${NOW+4}+`);
+      L.innerHTML = [NOW,NOW+1,NOW+2,NOW+3].map((y,i) => row(['#f6d365','#fda085','#f38181','#c56cf0'][i],y)).join('')
+        + row('#7f7fd5',`${NOW+4}+`);
     } else {
       L.innerHTML =
-        row('#7dd3a8', 'Mill &amp; overlay / reconstruct') +
-        row('#8ab4f8', 'Hot-in-place recycle') +
-        row('#e8a87c', 'Chip seal — rough aggregate') +
-        row('#c9b8f0', 'Concrete repair');
+        row('#7dd3a8', termHtml('mill_overlay','Mill &amp; overlay') + ' / ' + termHtml('reconstruct','Reconstruct'))
+        + row('#8ab4f8', termHtml('hipr','Hot-in-place recycle'))
+        + row('#e8a87c', termHtml('chip_seal','Chip seal') + ' — rough aggregate')
+        + row('#c9b8f0', termHtml('concrete','Concrete repair'));
     }
   } else if (layerMode === 'stress') {
-    L.innerHTML = [1,2,3,4].map(n => row(LTS_COLORS[n], LTS_LABELS[n])).join('') +
-      `<div style="color:var(--mute);margin-top:8px;font-size:11px">Furth/Mekuria model. Based on speed, lanes, and bike facility type.</div>`;
+    L.innerHTML = [1,2,3,4].map(n => row(LTS_COLORS[n], termHtml(`lts${n}`,LTS_LABELS[n]))).join('')
+      + `<div style="color:var(--mute);margin-top:8px;font-size:11px">Furth/Mekuria model. Based on speed, lanes, and bike facility type.</div>`;
   } else {
-    // facility
-    L.innerHTML = Object.entries(FAC_COLORS).map(([k, c]) => row(c, FAC_LABELS[k])).join('') +
-      `<div style="color:var(--mute);margin-top:8px;font-size:11px">City Open Data + DRCOG + OSM tags.</div>`;
+    L.innerHTML = Object.entries(FAC_COLORS).map(([k,c]) => {
+      const gid = FAC_TO_GUIDE[k] || k;
+      return row(c, termHtml(gid, FAC_LABELS[k]));
+    }).join('')
+      + `<div style="color:var(--mute);margin-top:8px;font-size:11px">City Open Data + DRCOG + OSM tags.</div>`;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Stats (pavement-mode only)
-// ---------------------------------------------------------------------------
 function stats(fc) {
   const bySource = {};
   let totalDone = 0, totalPlanned = 0;
   for (const f of fc.features) {
     const p = f.properties;
-    if (!bySource[p.source]) bySource[p.source] = { done: 0, planned: 0 };
-    if (p.lt_year === NOW)                      { bySource[p.source].done++;    totalDone++;    }
-    if (p.pl_year != null && p.pl_year >= NOW)  { bySource[p.source].planned++; totalPlanned++; }
+    if (!bySource[p.source]) bySource[p.source] = { done:0, planned:0 };
+    if (p.lt_year === NOW)                    { bySource[p.source].done++;    totalDone++;    }
+    if (p.pl_year != null && p.pl_year >= NOW){ bySource[p.source].planned++; totalPlanned++; }
   }
   const parts = Object.entries(bySource)
-    .filter(([, v]) => v.done + v.planned > 0)
-    .map(([k, v]) => `${SOURCE_NAMES[k]||k}: ${v.done} done · ${v.planned} planned`)
-    .join('<br>');
+    .filter(([,v]) => v.done+v.planned>0)
+    .map(([k,v]) => `${SOURCE_NAMES[k]||k}: ${v.done} done · ${v.planned} planned`).join('<br>');
   document.getElementById('stats').innerHTML =
-    `<b>${NOW} season:</b> ${totalDone.toLocaleString()} segs paved · ${totalPlanned.toLocaleString()} planned` +
-    (parts ? `<br><span style="font-size:11px">${parts}</span>` : '');
+    `<b>${NOW} season:</b> ${totalDone.toLocaleString()} segs paved · ${totalPlanned.toLocaleString()} planned`
+    + (parts ? `<br><span style="font-size:11px">${parts}</span>` : '');
 }
 
-// ---------------------------------------------------------------------------
-// Load
-// ---------------------------------------------------------------------------
+// ── Map load ──────────────────────────────────────────────────────────────
 map.on('load', async () => {
   const statusEl = document.getElementById('status');
-  const lineW = ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2.2, 16, 6];
+  const lineW = ['interpolate',['linear'],['zoom'],10,1,13,2.2,16,6];
 
-  // --- Pavement segments (GeoJSON) -----------------------------------------
   let fc;
   try {
     const res = await fetch('./data/segments.geojson');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     fc = await res.json();
     statusEl.textContent = `${fc.features.length.toLocaleString()} pavement segments loaded`;
-  } catch (e) {
-    statusEl.textContent = 'Could not load pavement data: ' + e.message;
-    return;
-  }
+  } catch(e) { statusEl.textContent = 'Could not load pavement data: '+e.message; return; }
 
-  map.addSource('pave', { type: 'geojson', data: fc });
-  map.addLayer({ id: 'seg-glow', type: 'line', source: 'pave',
-    layout: { 'line-cap': 'round' },
-    paint: { 'line-width': ['*', lineW, 3], 'line-blur': 4 } });
-  map.addLayer({ id: 'seg', type: 'line', source: 'pave',
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-width': lineW } });
-  map.addLayer({ id: 'hit', type: 'line', source: 'pave',
-    paint: { 'line-width': 14, 'line-opacity': 0 } });
+  map.addSource('pave',{type:'geojson',data:fc});
+  map.addLayer({id:'seg-glow',type:'line',source:'pave',layout:{'line-cap':'round'},
+    paint:{'line-width':['*',lineW,3],'line-blur':4}});
+  map.addLayer({id:'seg',type:'line',source:'pave',
+    layout:{'line-cap':'round','line-join':'round'},paint:{'line-width':lineW}});
+  map.addLayer({id:'hit',type:'line',source:'pave',paint:{'line-width':14,'line-opacity':0}});
 
   stats(fc);
   const runDates = {};
-  for (const f of fc.features) {
+  for (const f of fc.features)
     if (f.properties.run_date && !runDates[f.properties.source])
       runDates[f.properties.source] = f.properties.run_date;
-  }
   const latestDate = Object.values(runDates).sort().pop() || '—';
 
-  // --- Network tiles (PMTiles) ---------------------------------------------
   const tilesUrl = './tiles/network.pmtiles';
   let hasNetwork = false;
   try {
-    // Test that the file is accessible before adding source
-    const probe = await fetch(tilesUrl, { method: 'HEAD' });
+    const probe = await fetch(tilesUrl, { method:'HEAD' });
     if (probe.ok) {
-      map.addSource('network', {
-        type: 'vector',
-        url: `pmtiles://${new URL(tilesUrl, location.href).href}`,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      });
-      map.addLayer({ id: 'net-glow', type: 'line', source: 'network', 'source-layer': 'network',
-        layout: { 'line-cap': 'round', visibility: 'none' },
-        paint: { 'line-width': ['*', lineW, 3], 'line-blur': 4, 'line-opacity': 0.20 } });
-      map.addLayer({ id: 'net', type: 'line', source: 'network', 'source-layer': 'network',
-        layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' },
-        paint: { 'line-width': lineW, 'line-opacity': 0.88 } });
-      map.addLayer({ id: 'net-hit', type: 'line', source: 'network', 'source-layer': 'network',
-        layout: { visibility: 'none' },
-        paint: { 'line-width': 14, 'line-opacity': 0 } });
+      map.addSource('network',{type:'vector',
+        url:`pmtiles://${new URL(tilesUrl,location.href).href}`,
+        attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});
+      map.addLayer({id:'net-glow',type:'line',source:'network','source-layer':'network',
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':['*',lineW,3],'line-blur':4,'line-opacity':0.20}});
+      map.addLayer({id:'net',type:'line',source:'network','source-layer':'network',
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':lineW,'line-opacity':0.88}});
+      map.addLayer({id:'net-hit',type:'line',source:'network','source-layer':'network',
+        layout:{visibility:'none'},paint:{'line-width':14,'line-opacity':0}});
       hasNetwork = true;
     }
-  } catch (_) { /* tiles not built yet — network mode buttons will be hidden */ }
+  } catch(_) {}
 
   if (!hasNetwork) {
-    // Disable network mode buttons until tiles exist
     document.querySelectorAll('#layerMode button:not([data-l="smooth"])').forEach(b => {
-      b.disabled = true;
-      b.title = 'Network tiles not built yet — run npm run network:all';
-      b.style.opacity = '0.4';
+      b.disabled = true; b.title = 'Network tiles not built yet — run npm run network:all'; b.style.opacity = '0.4';
     });
   }
 
   paint();
-
   statusEl.textContent = `${fc.features.length.toLocaleString()} segments · data as of ${latestDate}`;
 
-  // --- Popups ---------------------------------------------------------------
-  // Pavement popup
-  map.on('mouseenter', 'hit', () => map.getCanvas().style.cursor = 'pointer');
-  map.on('mouseleave', 'hit', () => map.getCanvas().style.cursor = '');
-  map.on('click', 'hit', e => {
-    const visible = map.queryRenderedFeatures(e.point, { layers: ['seg'] });
-    const p = (visible[0] || e.features[0]).properties;
-    const bandColor = BAND_COLORS[p.band] || '#6b6f75';
-    const bandLabel = BAND_LABELS[p.band] || 'Unscored';
-    const txName = t => TREATMENT_NAMES[t] || t || 'unknown';
-    const runDate = runDates[p.source] || p.run_date || '—';
-    const basisLabel = BASIS_LABELS[p.basis] || p.basis || '—';
+  // ── Pavement popup ──────────────────────────────────────────────────────
+  map.on('mouseenter','hit',()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','hit',()=>map.getCanvas().style.cursor='');
+  map.on('click','hit',e=>{
+    const visible = map.queryRenderedFeatures(e.point,{layers:['seg']});
+    const p = (visible[0]||e.features[0]).properties;
+    const bandColor = BAND_COLORS[p.band]||'#6b6f75';
+    const bandLabel = BAND_LABELS[p.band]||'Unscored';
+    const txKey = p.lt_type;
+    const txLabel = TREATMENT_NAMES[txKey] || txKey || 'unknown';
+    const txHtml = TREAT_TO_GUIDE[txKey] ? termHtml(TREAT_TO_GUIDE[txKey], txLabel) : txLabel;
+    const runDate = runDates[p.source]||p.run_date||'—';
+    const basisLabel = BASIS_LABELS[p.basis]||p.basis||'—';
+    const basisGid = BASIS_GUIDE[p.basis];
+    const basisHtml = basisGid ? termHtml(basisGid, basisLabel) : basisLabel;
     const lowConf = p.confidence === 'low';
+    const morHtml = p.morat_year ? `<div><span class="k">${termHtml('moratorium','Utility-cut moratorium')} thru:</span> ${p.morat_year}</div>` : '';
 
-    new maplibregl.Popup({ maxWidth: '290px' })
+    new maplibregl.Popup({maxWidth:'300px'})
       .setLngLat(e.lngLat)
       .setHTML(`<div class="pp">
-        <h3>${p.name || '(unnamed)'}</h3>
+        <h3>${p.name||'(unnamed)'}</h3>
         ${p.from ? `<div class="k">${p.from} → ${p.to}</div>` : ''}
         <span class="pill" style="background:${bandColor}">${bandLabel}</span>
-        <div><span class="k">Last work:</span> ${txName(p.lt_type)}${p.lt_year ? ' (' + p.lt_year + ')' : ''}</div>
-        ${p.crew     ? `<div><span class="k">Crew:</span> ${p.crew}</div>` : ''}
-        ${p.pl_year  ? `<div><span class="k">Planned:</span> ${txName(p.pl_type)} in ${p.pl_year}</div>` : ''}
-        ${p.cond_label != null ? `<div><span class="k">Condition rating:</span> ${p.cond_label}</div>` : ''}
-        ${p.morat_year ? `<div><span class="k">Utility-cut moratorium thru:</span> ${p.morat_year}</div>` : ''}
-        ${p.tx_comment ? `<div class="k" style="margin-top:6px;font-size:11px">${p.tx_comment}</div>` : ''}
+        <div><span class="k">Last work:</span> ${txHtml}${p.lt_year?' ('+p.lt_year+')':''}</div>
+        ${p.crew?`<div><span class="k">Crew:</span> ${p.crew}</div>`:''}
+        ${p.pl_year?`<div><span class="k">Planned:</span> ${txLabel} in ${p.pl_year}</div>`:''}
+        ${p.cond_label!=null?`<div><span class="k">Condition:</span> ${p.cond_label}</div>`:''}
+        ${morHtml}
+        ${p.tx_comment?`<div class="k" style="margin-top:6px;font-size:11px">${p.tx_comment}</div>`:''}
         <div style="margin-top:8px;font-size:11px">
-          <span class="k">Score from:</span> ${basisLabel}
-          ${lowConf ? '<div class="warn">Low confidence — city rating not refreshed after paving</div>' : ''}
+          <span class="k">Score from:</span> ${basisHtml}
+          ${lowConf?'<div class="warn">Low confidence — city rating not refreshed after paving</div>':''}
         </div>
         <div class="k" style="font-size:11px">${SOURCE_NAMES[p.source]||p.source} · data as of ${runDate}</div>
       </div>`)
       .addTo(map);
   });
 
-  // Network popup (stress / facility modes)
+  // ── Network popup ───────────────────────────────────────────────────────
   if (hasNetwork) {
-    map.on('mouseenter', 'net-hit', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'net-hit', () => map.getCanvas().style.cursor = '');
-    map.on('click', 'net-hit', e => {
-      const visible = map.queryRenderedFeatures(e.point, { layers: ['net'] });
-      const p = (visible[0] || e.features[0]).properties;
+    map.on('mouseenter','net-hit',()=>map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave','net-hit',()=>map.getCanvas().style.cursor='');
+    map.on('click','net-hit',e=>{
+      const visible = map.queryRenderedFeatures(e.point,{layers:['net']});
+      const p = (visible[0]||e.features[0]).properties;
+      const ltsGid = LTS_TO_GUIDE[p.lts];
+      const ltsColor  = LTS_COLORS[p.lts]||'#6b6f75';
+      const ltsLabel  = LTS_LABELS[p.lts]||`LTS ${p.lts}`;
+      const ltsHtml   = ltsGid ? termHtml(ltsGid, ltsLabel) : ltsLabel;
+      const bandColor = BAND_COLORS[p.band]||'#6b6f75';
+      const bandLabel = BAND_LABELS[p.band]||'Unscored';
+      const facKey = p.facility_type;
+      const facLabel = FAC_LABELS[facKey]||facKey||'None';
+      const facColor = FAC_COLORS[facKey]||'#6b6f75';
+      const facGid = FAC_TO_GUIDE[facKey];
+      const facHtml = facGid ? termHtml(facGid, facLabel) : facLabel;
 
-      const ltsColor  = LTS_COLORS[p.lts]  || '#6b6f75';
-      const ltsLabel  = LTS_LABELS[p.lts]  || `LTS ${p.lts}`;
-      const bandColor = BAND_COLORS[p.band] || '#6b6f75';
-      const bandLabel = BAND_LABELS[p.band] || 'Unscored';
-      const facLabel  = FAC_LABELS[p.facility_type] || p.facility_type || 'None';
-      const facColor  = FAC_COLORS[p.facility_type] || '#6b6f75';
-
-      new maplibregl.Popup({ maxWidth: '290px' })
+      new maplibregl.Popup({maxWidth:'300px'})
         .setLngLat(e.lngLat)
         .setHTML(`<div class="pp">
-          <h3>${p.name || '(unnamed)'}</h3>
-          <div class="k" style="font-size:11px">${p.highway || ''}</div>
-          <div style="margin:6px 0">
-            <span class="pill" style="background:${ltsColor}">${ltsLabel}</span>
-          </div>
-          ${p.band ? `<span class="pill" style="background:${bandColor}">${bandLabel}</span>` : ''}
-          ${p.facility_type ? `<div><span class="k">Bike facility:</span> <span style="color:${facColor}">${facLabel}</span></div>` : ''}
+          <h3>${p.name||'(unnamed)'}</h3>
+          <div class="k" style="font-size:11px">${p.highway||''}</div>
+          <div style="margin:6px 0"><span class="pill" style="background:${ltsColor};color:#111">${ltsHtml}</span></div>
+          ${p.band?`<span class="pill" style="background:${bandColor};color:#111">${bandLabel}</span>`:''}
+          ${facKey?`<div><span class="k">Bike facility:</span> <span style="color:${facColor}">${facHtml}</span></div>`:''}
           <div style="margin-top:8px;font-size:12px">
             <div><span class="k">Speed:</span> ${p.speed_mph} mph · <span class="k">Lanes:</span> ${p.lanes}</div>
-            ${p.pave_src ? `<div><span class="k">Pavement data:</span> ${SOURCE_NAMES[p.pave_src]||p.pave_src}</div>` : ''}
+            ${p.pave_src?`<div><span class="k">Pavement data:</span> ${SOURCE_NAMES[p.pave_src]||p.pave_src}</div>`:''}
           </div>
           <div class="k" style="font-size:11px;margin-top:6px">OSM way ${p.way_id}</div>
         </div>`)
         .addTo(map);
     });
   }
+
+  // Check for #guide deep link after everything loads
+  checkHash();
 });
 
-// ---------------------------------------------------------------------------
-// Controls
-// ---------------------------------------------------------------------------
+// ── Controls ─────────────────────────────────────────────────────────────
 document.getElementById('layerMode').onclick = e => {
   const b = e.target.closest('button');
-  if (!b || b.disabled) return;
-  document.querySelectorAll('#layerMode button').forEach(x => x.classList.toggle('on', x === b));
+  if (!b||b.disabled) return;
+  document.querySelectorAll('#layerMode button').forEach(x=>x.classList.toggle('on',x===b));
   layerMode = b.dataset.l;
-
-  const isSmooth = layerMode === 'smooth';
-  document.getElementById('filterSmooth').style.display  = isSmooth ? '' : 'none';
-  document.getElementById('filterNetwork').style.display = isSmooth ? 'none' : '';
-
+  document.getElementById('filterSmooth').style.display  = layerMode==='smooth'?'':'none';
+  document.getElementById('filterNetwork').style.display = layerMode==='smooth'?'none':'';
   paint();
 };
-
 document.getElementById('modes').onclick = e => {
   const b = e.target.closest('button');
   if (!b) return;
-  document.querySelectorAll('#modes button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));
   mode = b.dataset.m;
   paint();
 };
-
 document.getElementById('hideChip').onchange   = paint;
 document.getElementById('hideMinor').onchange  = paint;
 document.getElementById('goodToRide').onchange = paint;
+document.getElementById('franklin').onclick    = () => map.fitBounds([[-104.9705,39.7395],[-104.9655,39.754]],{padding:80,duration:1200});
 
-document.getElementById('franklin').onclick =
-  () => map.fitBounds([[-104.9705, 39.7395], [-104.9655, 39.754]], { padding: 80, duration: 1200 });
+// ── Field Guide panel ────────────────────────────────────────────────────
+const CAT_LABELS = { treatment:'Treatments', condition:'Condition', stress:'Traffic stress', facility:'Bike facilities' };
+let gpCat = 'all';
+
+function openGuidePanel() {
+  document.getElementById('main-panel-content').classList.add('hidden');
+  document.getElementById('guide-panel').classList.add('active');
+  renderGuideGrid();
+}
+function closeGuidePanel() {
+  document.getElementById('main-panel-content').classList.remove('hidden');
+  document.getElementById('guide-panel').classList.remove('active');
+}
+
+function renderGuideGrid() {
+  // Category chips
+  const cats = document.getElementById('gp-cats');
+  cats.innerHTML = '';
+  const all = document.createElement('button');
+  all.className = 'gp-cat' + (gpCat==='all'?' on':'');
+  all.textContent = 'All';
+  all.onclick = () => { gpCat='all'; renderGuideGrid(); };
+  cats.appendChild(all);
+  for (const [k,v] of Object.entries(CAT_LABELS)) {
+    const b = document.createElement('button');
+    b.className = 'gp-cat' + (gpCat===k?' on':'');
+    b.textContent = v;
+    b.onclick = () => { gpCat=k; renderGuideGrid(); };
+    cats.appendChild(b);
+  }
+
+  // Grid
+  const grid = document.getElementById('gp-grid');
+  grid.innerHTML = '';
+  const terms = [...glossary.values()].filter(t => gpCat==='all' || t.category===gpCat);
+  for (const t of terms) {
+    const card = document.createElement('button');
+    card.className = 'gp-card';
+    card.setAttribute('data-guide', t.id);
+
+    const hasPhoto = !!t.photo;
+    const thumbHtml = hasPhoto
+      ? `<img class="gp-thumb" src="${GUIDE_BASE}/photos/${t.id}.webp" alt="" loading="lazy">`
+      : `<div class="gp-thumb-svg"><img src="${GUIDE_BASE}/diagrams/${t.diagram||t.id}.svg" alt=""></div>`;
+
+    card.innerHTML = `${thumbHtml}
+      <div class="gp-info">
+        <div class="gp-name">${t.term}</div>
+        <div class="gp-oneliner">${t.one_liner}</div>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+
+document.getElementById('open-guide').onclick = openGuidePanel;
+document.getElementById('gp-back').onclick     = closeGuidePanel;
+
+// ── Guide sheet ──────────────────────────────────────────────────────────
+let sheetHistory = [];
+let sheetFocusReturn = null;
+
+function openSheet(id, pushHistory = true) {
+  const t = glossary.get(id);
+  if (!t) return;
+  if (pushHistory && sheetHistory[sheetHistory.length-1] !== id) sheetHistory.push(id);
+
+  const sheet = document.getElementById('guide-sheet');
+  const body  = document.getElementById('gs-body');
+  document.getElementById('gs-title').textContent = t.term;
+  document.getElementById('gs-back').style.visibility = sheetHistory.length > 1 ? 'visible' : 'hidden';
+
+  const hasPhoto = !!t.photo;
+  const imgHtml = hasPhoto
+    ? `<img class="gs-photo" src="${GUIDE_BASE}/photos/${id}.webp" alt="${t.photo.caption||t.term}" loading="lazy">
+       <p class="gs-credit">${t.photo.caption} — ${t.photo.credit} (${t.photo.license})</p>`
+    : '';
+  const diagramId = t.diagram || id;
+  const diagramHtml = `<img class="gs-diagram" src="${GUIDE_BASE}/diagrams/${diagramId}.svg" alt="Diagram: ${t.term}">`;
+
+  const bandHtml = t.typical_band
+    ? `<span class="gs-chip" style="background:${BAND_COLORS[t.typical_band]||'#3a3d42'};color:#111;border-color:transparent">${BAND_LABELS[t.typical_band]||t.typical_band}</span>` : '';
+  const lifespanHtml = t.lifespan ? `<span class="gs-chip">${t.lifespan}</span>` : '';
+
+  const stepsHtml = t.steps?.length
+    ? `<div class="gs-section"><div class="gs-label">How it's done</div><ol class="gs-steps">${t.steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>` : '';
+  const spotHtml = t.how_to_spot
+    ? `<div class="gs-section"><div class="gs-label">How to spot it</div><div class="gs-val">${t.how_to_spot}</div></div>` : '';
+  const riderHtml = t.rider_take
+    ? `<div class="gs-section"><div class="gs-label">Rider take</div><div class="gs-val">${t.rider_take}</div></div>` : '';
+  const akaHtml = t.aka?.length
+    ? `<div class="gs-section"><div class="gs-label">Also known as</div><div class="gs-val" style="color:var(--mute)">${t.aka.join(' · ')}</div></div>` : '';
+
+  body.innerHTML = `${imgHtml}${diagramHtml}
+    <div class="gs-meta">${bandHtml}${lifespanHtml}</div>
+    ${riderHtml}${stepsHtml}${spotHtml}${akaHtml}`;
+
+  sheet.hidden = false;
+  requestAnimationFrame(()=>{ sheet.classList.add('open'); document.getElementById('guide-backdrop').classList.add('show'); });
+  history.replaceState(null,'',`#guide/${id}`);
+  document.getElementById('gs-close').focus();
+}
+
+function closeSheet() {
+  const sheet = document.getElementById('guide-sheet');
+  sheet.classList.remove('open');
+  document.getElementById('guide-backdrop').classList.remove('show');
+  sheetHistory = [];
+  history.replaceState(null,'','#');
+  setTimeout(()=>{ sheet.hidden = true; },250);
+  if (sheetFocusReturn) { sheetFocusReturn.focus(); sheetFocusReturn = null; }
+}
+
+document.getElementById('gs-close').onclick = closeSheet;
+document.getElementById('gs-back').onclick   = () => {
+  if (sheetHistory.length > 1) {
+    sheetHistory.pop();
+    openSheet(sheetHistory[sheetHistory.length-1], false);
+  }
+};
+document.getElementById('guide-backdrop').onclick = closeSheet;
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape' && document.getElementById('guide-sheet').classList.contains('open')) closeSheet();
+});
+
+// ── Global term click & hover ─────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-guide]');
+  if (!btn) return;
+  sheetFocusReturn = btn;
+  openSheet(btn.dataset.guide);
+});
+
+const hcard = document.getElementById('hcard');
+const canHover = window.matchMedia('(hover:hover)').matches;
+let hoverTimer;
+
+if (canHover) {
+  document.addEventListener('mouseover', e => {
+    const btn = e.target.closest('[data-guide]');
+    if (!btn) return;
+    clearTimeout(hoverTimer);
+    const t = glossary.get(btn.dataset.guide);
+    if (!t) return;
+    const diagramId = t.diagram || btn.dataset.guide;
+    document.getElementById('hcard-diagram').innerHTML =
+      `<img src="${GUIDE_BASE}/diagrams/${diagramId}.svg" alt="">`;
+    document.getElementById('hcard-title').textContent = t.term;
+    document.getElementById('hcard-text').textContent  = t.one_liner;
+
+    const r = btn.getBoundingClientRect();
+    const cardW = 240, cardH = 120;
+    let left = r.right + 8;
+    let top  = r.top;
+    if (left + cardW > window.innerWidth - 8)  left = r.left - cardW - 8;
+    if (top  + cardH > window.innerHeight - 8) top  = window.innerHeight - cardH - 8;
+    hcard.style.left = Math.max(8, left) + 'px';
+    hcard.style.top  = Math.max(8, top)  + 'px';
+    hcard.classList.add('show');
+    hcard.removeAttribute('aria-hidden');
+  });
+  document.addEventListener('mouseout', e => {
+    const btn = e.target.closest('[data-guide]');
+    if (!btn) return;
+    hoverTimer = setTimeout(()=>{ hcard.classList.remove('show'); hcard.setAttribute('aria-hidden','true'); }, 120);
+  });
+}
+
+// ── Hash routing ─────────────────────────────────────────────────────────
+function checkHash() {
+  const m = location.hash.match(/^#guide\/(.+)/);
+  if (m && glossary.has(m[1])) openSheet(m[1]);
+}
+window.addEventListener('hashchange', checkHash);
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadGlossary().then(() => {
+  paint(); // re-paint legend with term links once glossary is loaded
+});
 </script>
 </body>
 </html>

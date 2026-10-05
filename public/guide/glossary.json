@@ -1,0 +1,155 @@
+{
+  "_note": "Fresh Pavement field guide content. Source of truth for tooltips, popovers and the Field Guide page. Rider takes are our best read and should be validated by rider ratings. Photos: Wikimedia Commons, license noted per item; download into the site with attribution before shipping.",
+  "terms": [
+    {
+      "id": "mill_overlay", "category": "treatment", "term": "Mill & overlay", "aka": ["Mill and fill", "Resurfacing", "Contract mill and overlay"],
+      "one_liner": "Grind off the worn top layer, lay down fresh asphalt.",
+      "steps": ["A milling machine grinds off the top 1.5–3 in of old asphalt.", "The surface is swept and sprayed with a sticky tack coat.", "A paver lays new hot-mix asphalt; rollers compact it smooth."],
+      "rider_take": "The good stuff. Fresh overlay is dark, tight-textured and glassy for small wheels. Best in its first few seasons.",
+      "typical_band": "fresh", "lifespan": "~12 years (Denver DOTI)",
+      "how_to_spot": "Deep black, uniform surface; crisp new lane paint; often a slight lip at driveways and gutters for the first weeks.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/3/38/Closeup_photo_of_fresh_tarmac.jpg", "caption": "Fresh asphalt up close", "credit": "Wikimedia Commons", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Closeup_photo_of_fresh_tarmac.jpg"},
+      "photo_alt": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/SAKAI_ER551F_asphalt_milling_machine%2C_in_Tokyo.jpg/960px-SAKAI_ER551F_asphalt_milling_machine%2C_in_Tokyo.jpg", "caption": "Milling machine grinding off old asphalt", "credit": "Syced", "license": "CC0", "page": "https://commons.wikimedia.org/wiki/File:SAKAI_ER551F_asphalt_milling_machine,_in_Tokyo.jpg"},
+      "diagram": "mill_overlay"
+    },
+    {
+      "id": "hipr", "category": "treatment", "term": "Hot-in-place recycling", "aka": ["HIPR", "Hot in-place recycle"],
+      "one_liner": "Heat the top inch of the old road, remix it, and lay it back down.",
+      "steps": ["A train of heaters softens the top ~1 in of existing asphalt.", "It's scraped up and mixed with a rejuvenating oil and a little new asphalt.", "The mix is re-laid and rolled in one pass. Most of the road is reused on site."],
+      "rider_take": "Usually smooth, but the texture can be a touch coarser and greyer than a full overlay, and it won't fix deep problems underneath. Franklin St (Colfax–26th, 2026) is our test case.",
+      "typical_band": "excellent", "lifespan": "8–10 years (Denver DOTI)",
+      "how_to_spot": "Looks freshly paved but slightly less jet-black than new overlay; edges and gutter lines unchanged.",
+      "photo": null, "photo_note": "No good open photo found. Best source: our own photo of Franklin St.",
+      "diagram": "hipr"
+    },
+    {
+      "id": "chip_seal", "category": "treatment", "term": "Chip seal", "aka": ["Chipseal", "Seal coat"],
+      "one_liner": "Spray hot asphalt glue, then cover it with small stones.",
+      "steps": ["A truck sprays a thin layer of liquid asphalt.", "A spreader drops small stone chips on top.", "Rollers press the chips in; loose chips are swept up over the following days."],
+      "rider_take": "Rough for small wheels: buzzy, grabby and loud, with loose gravel for the first weeks. Cheap for cities, bad for skating. We cap it at Poor.",
+      "typical_band": "poor", "lifespan": "6–8 years (Denver DOTI)",
+      "how_to_spot": "Every stone visible, like coarse sandpaper; grey-brown color; loose chips at the curb.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Road_surface_%22chipseal%22%2C_Bergerm%C3%BChlstra%C3%9Fe_in_Memmingen%2C_Germany_1.jpg/960px-Road_surface_%22chipseal%22%2C_Bergerm%C3%BChlstra%C3%9Fe_in_Memmingen%2C_Germany_1.jpg", "caption": "Chip seal surface", "credit": "Mcliquid", "license": "CC0", "page": "https://commons.wikimedia.org/wiki/File:Road_surface_%22chipseal%22,_Bergerm%C3%BChlstra%C3%9Fe_in_Memmingen,_Germany_1.jpg"},
+      "photo_alt": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Completed_chip_seal_application_to_road_surface_in_VA_%28711a5416-f959-454d-9fb5-f6a380d1c8a0%29.jpg/960px-Completed_chip_seal_application_to_road_surface_in_VA_%28711a5416-f959-454d-9fb5-f6a380d1c8a0%29.jpg", "caption": "Freshly completed chip seal", "credit": "NPS Photo", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Completed_chip_seal_application_to_road_surface_in_VA_(711a5416-f959-454d-9fb5-f6a380d1c8a0).jpg"},
+      "diagram": "chip_seal"
+    },
+    {
+      "id": "cape_seal", "category": "treatment", "term": "Cape seal", "aka": ["Capeseal"],
+      "one_liner": "A chip seal with a slurry coat on top to fill the gaps between stones.",
+      "steps": ["Chip seal goes down first.", "Days later, a thin slurry is squeegeed over it, filling between the chips."],
+      "rider_take": "Noticeably smoother than plain chip seal but still gritty. Rideable, not a destination.",
+      "typical_band": "fair", "lifespan": "6–8 years (Denver DOTI)",
+      "how_to_spot": "Stones visible but sitting in a flat grey matrix; less loose gravel.",
+      "photo": null, "diagram": "cape_seal"
+    },
+    {
+      "id": "slurry_seal", "category": "treatment", "term": "Slurry seal", "aka": ["Microsurfacing (heavier version)"],
+      "one_liner": "A thin, soupy coat of asphalt and fine sand spread over the road.",
+      "steps": ["A mix of asphalt emulsion, fine aggregate and water is made in the truck.", "It's spread like a squeegee coat, about ¼ in thick.", "It cures in a few hours."],
+      "rider_take": "Fills small cracks and looks fresh, but the surface is like fine sandpaper: grippy and a little slow.",
+      "typical_band": "fair", "lifespan": "~5–7 years (typical)",
+      "how_to_spot": "Flat dark-grey coat with a fine, even sandy texture; old cracks often still faintly visible.",
+      "photo": null, "diagram": "slurry_seal"
+    },
+    {
+      "id": "crack_seal", "category": "treatment", "term": "Crack seal", "aka": ["Crack fill", "Tar snakes"],
+      "one_liner": "Rubbery sealant poured into cracks to keep water out.",
+      "steps": ["Cracks are blown clean with hot air.", "Hot rubberized sealant is poured in and smeared over the top."],
+      "rider_take": "Doesn't make a street smoother. The sealant lines ('tar snakes') are little ridges and get slick when hot. We don't let it change a street's band.",
+      "typical_band": null, "lifespan": "~2–4 years (typical)",
+      "how_to_spot": "Shiny black squiggly lines across an otherwise older road.",
+      "photo": null, "diagram": "crack_seal"
+    },
+    {
+      "id": "reclamite", "category": "treatment", "term": "Rejuvenator (Reclamite)", "aka": ["Asphalt rejuvenator", "Fog seal"],
+      "one_liner": "A spray-on oil that keeps younger asphalt from drying out.",
+      "steps": ["A light oil emulsion is sprayed on fairly new pavement.", "It soaks in; sand is often spread so it isn't slippery."],
+      "rider_take": "No change in smoothness. Slippery for a day or two, then it's just preventive care.",
+      "typical_band": null, "lifespan": "Extends pavement life a few years",
+      "how_to_spot": "Road looks darker and freshly 'wet' for a few days; sand at the edges.",
+      "photo": null, "diagram": "reclamite"
+    },
+    {
+      "id": "concrete", "category": "treatment", "term": "Concrete repair", "aka": ["Panel replacement", "Concrete panels"],
+      "one_liner": "Broken concrete slabs are cut out and re-poured.",
+      "steps": ["Damaged panels are saw-cut and removed.", "New concrete is poured and finished.", "Joints are cut between panels so they can expand."],
+      "rider_take": "New slabs can be smooth, but the joints every 10–15 ft give a steady thwack-thwack on small wheels.",
+      "typical_band": "fair", "lifespan": "20–40 years (typical)",
+      "how_to_spot": "Light grey slabs with straight joints; new panels brighter than neighbors.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/0/03/Transverse_Joint_Misalignment_VA_%288495182867%29.jpg", "caption": "Concrete pavement joint", "credit": "Federal Highway Administration", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Transverse_Joint_Misalignment_VA_(8495182867).jpg"},
+      "diagram": "concrete"
+    },
+    {
+      "id": "reconstruct", "category": "treatment", "term": "Reconstruction", "aka": ["Full-depth paving", "Full reconstruction"],
+      "one_liner": "Tear the road out down to the base and build it back new.",
+      "steps": ["All asphalt (sometimes the base) is removed.", "The base is rebuilt and compacted.", "New asphalt or concrete is laid in layers."],
+      "rider_take": "Brand-new road. As good as it gets, and it stays good longest.",
+      "typical_band": "fresh", "lifespan": "20+ years",
+      "how_to_spot": "Everything new: curbs, gutters, ramps, paint.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Truck_and_Asphalt_Paver_Compressed_%283769007385%29.jpg/960px-Truck_and_Asphalt_Paver_Compressed_%283769007385%29.jpg", "caption": "Paver laying new asphalt", "credit": "USFS Pacific Southwest Region 5", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Truck_and_Asphalt_Paver_Compressed_(3769007385).jpg"},
+      "diagram": "reconstruct"
+    },
+    {
+      "id": "patch", "category": "treatment", "term": "Patching", "aka": ["Machine patch", "Pothole repair"],
+      "one_liner": "Cut out a damaged spot and fill it with new asphalt.",
+      "steps": ["The bad area is cut or milled out.", "Hot asphalt is placed and compacted."],
+      "rider_take": "Fixes a hole, but every patch edge is a bump. Patchwork streets ride rough.",
+      "typical_band": null, "lifespan": "Varies",
+      "how_to_spot": "Rectangles of darker asphalt with seams around them.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Patched_road_surface%2C_Market_Street%2C_Nailsworth_-_geograph.org.uk_-_4772575.jpg", "caption": "Patched road surface", "credit": "Jaggery", "license": "CC BY-SA 2.0", "page": "https://commons.wikimedia.org/wiki/File:Patched_road_surface,_Market_Street,_Nailsworth_-_geograph.org.uk_-_4772575.jpg"},
+      "diagram": "patch"
+    },
+
+    {
+      "id": "pci", "category": "condition", "term": "Condition index (PCI / OCI)", "aka": ["Pavement Condition Index", "Overall Condition Index"],
+      "one_liner": "A 0–100 grade from a survey of cracks, potholes and wear.",
+      "steps": ["Inspectors or a camera van record every crack, patch and pothole.", "Software turns that into a score: 100 = perfect, below 40 = falling apart."],
+      "rider_take": "Good overall signal, but it counts cracks more than bumpiness. A cracked-but-flat street can ride fine.",
+      "how_to_spot": null, "diagram": "pci"
+    },
+    {
+      "id": "iri", "category": "condition", "term": "Roughness (IRI)", "aka": ["International Roughness Index"],
+      "one_liner": "How much a wheel moves up and down per mile: literally, how bumpy it rides.",
+      "steps": ["A van with lasers drives the street and measures the surface profile.", "The result is inches of up-and-down per mile. Lower = smoother."],
+      "rider_take": "The closest thing to ride quality we can get from city data, so we weight it more than PCI. Aurora measures it.",
+      "how_to_spot": null, "diagram": "iri"
+    },
+    {
+      "id": "moratorium", "category": "condition", "term": "Paving moratorium", "aka": ["Utility-cut moratorium"],
+      "one_liner": "After paving, utilities can't dig up the street for a few years.",
+      "steps": ["Denver bars new cuts for 3 years after paving, except emergencies."],
+      "rider_take": "Good news: freshly paved streets stay patch-free for a while.",
+      "how_to_spot": null, "diagram": "moratorium"
+    },
+
+    {"id": "lts1", "category": "stress", "term": "Traffic stress 1", "one_liner": "Calm enough for kids: paths, protected lanes, quiet 25-mph streets.", "rider_take": "Relaxed riding.", "diagram": "lts"},
+    {"id": "lts2", "category": "stress", "term": "Traffic stress 2", "one_liner": "Comfortable for most adults: low-speed streets or decent bike lanes.", "rider_take": "Fine for most riders.", "diagram": "lts"},
+    {"id": "lts3", "category": "stress", "term": "Traffic stress 3", "one_liner": "For confident riders: busier streets, painted lanes next to 30–35 mph traffic.", "rider_take": "Stay alert.", "diagram": "lts"},
+    {"id": "lts4", "category": "stress", "term": "Traffic stress 4", "one_liner": "High stress: fast, multi-lane traffic with little or no protection.", "rider_take": "Avoid on a board.", "diagram": "lts"},
+
+    {"id": "protected_lane", "category": "facility", "term": "Protected bike lane", "aka": ["Separated bike lane", "Cycle track"], "one_liner": "A bike lane separated from cars by posts, curbs or parked cars.",
+      "rider_take": "Best on-street option for boards and EUCs, as long as the surface inside it is good.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Separated_bike_lane_-_Washington_DC_%2849172814558%29.jpg/960px-Separated_bike_lane_-_Washington_DC_%2849172814558%29.jpg", "caption": "Separated bike lane", "credit": "National Transportation Safety Board", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Separated_bike_lane_-_Washington_DC_(49172814558).jpg"}, "diagram": "fac_protected"},
+    {"id": "buffered_lane", "category": "facility", "term": "Buffered bike lane", "one_liner": "A painted bike lane with an extra striped gap between you and traffic.",
+      "rider_take": "Better than paint alone; watch for cars crossing it.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Buffered_bicycle_lane_in_Burlington_VT.jpg/960px-Buffered_bicycle_lane_in_Burlington_VT.jpg", "caption": "Buffered bike lane", "credit": "Ezekielf", "license": "CC0", "page": "https://commons.wikimedia.org/wiki/File:Buffered_bicycle_lane_in_Burlington_VT.jpg"}, "diagram": "fac_buffered"},
+    {"id": "painted_lane", "category": "facility", "term": "Bike lane", "aka": ["Painted bike lane"], "one_liner": "A striped lane for bikes right next to traffic.",
+      "rider_take": "Often the roughest strip of the road (gutter seams, debris). Check the smoothness score.", "diagram": "fac_painted"},
+    {"id": "neighborhood_bikeway", "category": "facility", "term": "Neighborhood bikeway", "aka": ["Bike boulevard"], "one_liner": "A quiet residential street tuned for bikes with signs, speed humps and safer crossings.",
+      "rider_take": "Great low-stress routes; speed humps are worth knowing about on a board.", "diagram": "fac_bikeway"},
+    {"id": "shared_lane", "category": "facility", "term": "Shared lane (sharrow)", "one_liner": "Painted bike-and-arrows symbol: you share the lane with cars.",
+      "rider_take": "Paint only, no space of your own.",
+      "photo": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Sharrow_Grand_Street_%28Manhattan%29_jeh.jpg/960px-Sharrow_Grand_Street_%28Manhattan%29_jeh.jpg", "caption": "Sharrow marking", "credit": "Jim.henderson", "license": "Public domain", "page": "https://commons.wikimedia.org/wiki/File:Sharrow_Grand_Street_(Manhattan)_jeh.jpg"}, "diagram": "fac_sharrow"},
+    {"id": "shared_use_path", "category": "facility", "term": "Shared-use path", "aka": ["Trail", "Multi-use path", "Sidepath"], "one_liner": "Off-street paved path for bikes, boards and walkers, like the Cherry Creek Trail.",
+      "rider_take": "Often the best skating in town. Concrete trails have joints; asphalt ones are smoother.", "diagram": "fac_path"}
+  ],
+  "bands": [
+    {"id": "fresh", "label": "Fresh", "one_liner": "Brand-new mill & overlay or rebuild, ≤2 seasons old."},
+    {"id": "excellent", "label": "Excellent", "one_liner": "Glassy. Barely a crack."},
+    {"id": "good", "label": "Good", "one_liner": "Smooth with minor cracks."},
+    {"id": "fair", "label": "Fair", "one_liner": "Rideable; some cracks, patches or texture."},
+    {"id": "poor", "label": "Poor", "one_liner": "Rough. Pick your line."},
+    {"id": "very_poor", "label": "Very poor", "one_liner": "Avoid if you can."},
+    {"id": "failed", "label": "Failed", "one_liner": "Broken pavement. No."}
+  ]
+}
