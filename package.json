@@ -1,0 +1,14 @@
+{
+  "name": "fresh-pavement",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "fetch": "node scripts/fetch.js",
+    "build": "node scripts/build.js",
+    "preview": "npx -y serve public -l 3000",
+    "check-scores": "node scripts/check-scores.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

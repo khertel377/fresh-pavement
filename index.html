@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fresh Pavement</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{--bg:#0f1113;--panel:rgba(20,22,25,.92);--ink:#eceae6;--mute:#8d8a85;--line:#2a2d31;--accent:#7dd3a8}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;top:16px;left:16px;width:300px;max-width:calc(100% - 32px);background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:16px;z-index:2}
+  h1{margin:0 0 2px;font-size:18px;letter-spacing:-.01em}
+  .sub{color:var(--mute);font-size:12px;margin-bottom:14px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#1a1d20;padding:4px;border-radius:10px;margin-bottom:12px}
+  .seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;border-radius:7px;font-size:12px;color:var(--mute)}
+  .seg button.on{background:#2c3035;color:var(--ink)}
+  label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer}
+  .legend{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px}
+  .row{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .sw{width:22px;height:4px;border-radius:2px;flex:none}
+  .stats{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--mute)}
+  .stats b{color:var(--ink);font-weight:600}
+  .status{font-size:12px;color:var(--accent);margin-top:8px}
+  .jump{all:unset;cursor:pointer;font-size:12px;color:var(--accent);margin-top:8px;display:inline-block}
+  .maplibregl-popup-content{background:#17191c;color:var(--ink);border-radius:10px;padding:12px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .maplibregl-popup-tip{border-top-color:#17191c!important;border-bottom-color:#17191c!important}
+  .pp h3{margin:0 0 2px;font-size:14px}.pp .k{color:var(--mute)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#111;margin:6px 0}
+  @media (max-width:600px){.panel{top:auto;bottom:16px;width:auto;right:16px}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Fresh Pavement</h1>
+  <div class="sub">Denver street resurfacing, scored for skate &amp; EUC</div>
+  <div class="seg" id="modes">
+    <button data-m="score" class="on">Skate score</button>
+    <button data-m="y0">Paved 2026</button>
+    <button data-m="y2">Last 3 seasons</button>
+    <button data-m="planned">Planned</button>
+  </div>
+  <label class="tog"><input type="checkbox" id="hideChip" checked> Hide chip seal</label>
+  <label class="tog"><input type="checkbox" id="hideMinor"> Hide unscored streets</label>
+  <div class="legend" id="legend"></div>
+  <div class="stats" id="stats"></div>
+  <button class="jump" id="franklin">↳ Jump to Franklin (Colfax–26th)</button>
+  <div class="status" id="status">Loading city data…</div>
+</div>
+<script>
+const NOW = new Date().getFullYear();
+const SRC = 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/Denver_Pavement_Treatments/FeatureServer/428/query';
+const FIELDS = 'OBJECTID,MASTER_ID,GIS_FULLNAME,FROMNAME,TONAME,VOLCLASS,CCD_Treatment,Committed_Year,YR_LSTWK,MORATORIUM_THRU_YEAR,SMDCrew,TreatmentComment,EstimatedOCR,Lane_Miles';
+
+// --- interpretation -------------------------------------------------------
+function kind(s){
+  s=(s||'').toLowerCase();
+  if(/chip|cape/.test(s)) return 'chip';
+  if(/hipr|hot.in.place/.test(s)) return 'hipr';
+  if(/mill|overlay|reconstruct|full depth|go bond|central 70|external paving/.test(s)) return 'mo';
+  if(/concrete/.test(s)) return 'concrete';
+  return null;
+}
+function interpret(p){
+  const cy=p.Committed_Year, yl=p.YR_LSTWK>1900?p.YR_LSTWK:null;
+  const done = cy && yl && yl===cy;
+  const planned = cy && cy>=NOW && !done;
+  // What surface is on the road now?
+  let lastKind=null, lastYear=yl;
+  if(done) lastKind=kind(p.CCD_Treatment);
+  else {
+    const m=(p.TreatmentComment||'').match(/(19|20)\d\d\s*([A-Za-z].*)/);
+    if(m){ const y=+m[0].slice(0,4); if(!yl||y===yl) lastKind=kind(m[2]); if(!lastYear) lastYear=y; }
+  }
+  const age = lastYear? NOW-lastYear : null;
+  let score=null;
+  if(lastKind && age!=null){
+    const base={mo:100,hipr:85,concrete:55,chip:20}[lastKind];
+    const decay={mo:7,hipr:8,concrete:3,chip:2}[lastKind];
+    score=Math.max(5,Math.round(base-decay*age));
+  }
+  return {done:!!done,planned:!!planned,lastKind,lastYear,age,score,
+          plannedKind:planned?kind(p.CCD_Treatment):null};
+}
+
+// --- data -----------------------------------------------------------------
+async function loadAll(){
+  const status=document.getElementById('status');
+  const count=(await (await fetch(SRC+'?where=1%3D1&returnCountOnly=true&f=json')).json()).count;
+  const pages=Math.ceil(count/2000); let got=0;
+  const reqs=[...Array(pages)].map((_,i)=>
+    fetch(`${SRC}?where=1%3D1&outFields=${FIELDS}&outSR=4326&geometryPrecision=6&orderByFields=OBJECTID&resultOffset=${i*2000}&resultRecordCount=2000&f=geojson`)
+      .then(r=>r.json()).then(j=>{got+=j.features.length;status.textContent=`Loading city data… ${got.toLocaleString()} / ${count.toLocaleString()}`;return j.features}));
+  const feats=(await Promise.all(reqs)).flat();
+  for(const f of feats){ Object.assign(f.properties, interpret(f.properties)); f.id=f.properties.OBJECTID; }
+  return {type:'FeatureCollection',features:feats};
+}
+
+// --- map ------------------------------------------------------------------
+const map=new maplibregl.Map({container:'map',
+  style:'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
+  center:[-104.96,39.735],zoom:12.3,attributionControl:{compact:true}});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+map.addControl(new maplibregl.GeolocateControl({trackUserLocation:true}),'top-right');
+
+const COL={mo:'#7dd3a8',hipr:'#8ab4f8',chip:'#e8a87c',concrete:'#c9b8f0',other:'#6b6f75'};
+const scoreRamp=['interpolate',['linear'],['get','score'],5,'#5b3a3a',35,'#c2703d',60,'#e3c14f',80,'#9fd67a',100,'#3ee6a0'];
+const kindColor=k=>['match',['get',k],'mo',COL.mo,'hipr',COL.hipr,'chip',COL.chip,'concrete',COL.concrete,COL.other];
+let mode='score';
+
+function filterFor(){
+  const hideChip=document.getElementById('hideChip').checked;
+  const hideMinor=document.getElementById('hideMinor').checked;
+  const f=['all'];
+  if(mode==='y0') f.push(['all',['==',['get','done'],true],['==',['get','lastYear'],NOW]]);
+  if(mode==='y2') f.push(['all',['>=',['coalesce',['get','lastYear'],0],NOW-2],['!=',['get','lastKind'],null]]);
+  if(mode==='planned') f.push(['==',['get','planned'],true]);
+  const kf = mode==='planned'?'plannedKind':'lastKind';
+  if(hideChip) f.push(['!=',['get',kf],'chip']);
+  if(hideMinor && mode==='score') f.push(['!=',['get','score'],null]);
+  return f;
+}
+function paint(){
+  if(!map.getLayer('seg')) return;
+  let color, opacity=0.95;
+  if(mode==='score') color=['case',['==',['get','score'],null],'#3a3d42',scoreRamp];
+  else if(mode==='planned') color=['match',['get','Committed_Year'],NOW,'#f6d365',NOW+1,'#fda085',NOW+2,'#f38181',NOW+3,'#c56cf0','#7f7fd5'];
+  else color=kindColor('lastKind');
+  map.setPaintProperty('seg','line-color',color);
+  map.setPaintProperty('seg-glow','line-color',color);
+  map.setFilter('seg',filterFor()); map.setFilter('seg-glow',filterFor());
+  map.setPaintProperty('seg-glow','line-opacity', mode==='score'?0:0.25);
+  legend();
+}
+function legend(){
+  const L=document.getElementById('legend');
+  const row=(c,t)=>`<div class="row"><span class="sw" style="background:${c}"></span>${t}</div>`;
+  if(mode==='score') L.innerHTML=
+    `<div class="sw" style="width:100%;height:6px;background:linear-gradient(90deg,#5b3a3a,#c2703d,#e3c14f,#9fd67a,#3ee6a0);margin-bottom:4px"></div>
+     <div style="display:flex;justify-content:space-between;color:var(--mute)"><span>rough / old</span><span>fresh &amp; smooth</span></div>
+     <div style="color:var(--mute);margin-top:6px">Estimated from treatment type × years since work. Not yet validated by riders.</div>`;
+  else if(mode==='planned') L.innerHTML=[NOW,NOW+1,NOW+2,NOW+3].map((y,i)=>row(['#f6d365','#fda085','#f38181','#c56cf0'][i],y)).join('')+row('#7f7fd5',`${NOW+4}+`);
+  else L.innerHTML=row(COL.mo,'Mill &amp; overlay / reconstruct — fresh asphalt')+row(COL.hipr,'Hot-in-place recycle')+row(COL.chip,'Chip seal — rough aggregate')+row(COL.concrete,'Concrete repair');
+}
+function stats(fc){
+  const s={};let n=0,todo=0;
+  for(const f of fc.features){const p=f.properties;
+    if(p.done&&p.lastYear===NOW){n+=p.Lane_Miles||0;s[p.lastKind||'other']=(s[p.lastKind||'other']||0)+(p.Lane_Miles||0)}
+    if(p.planned&&p.Committed_Year===NOW) todo+=p.Lane_Miles||0;}
+  const nm={mo:'mill &amp; overlay',hipr:'HIPR',chip:'chip seal',concrete:'concrete',other:'other'};
+  document.getElementById('stats').innerHTML=`<b>${NOW} season:</b> ${n.toFixed(0)} lane-mi done, ${todo.toFixed(0)} still scheduled<br>`+
+    Object.entries(s).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${nm[k]} ${v.toFixed(0)}`).join(' · ');
+}
+
+map.on('load', async ()=>{
+  let fc;
+  try{ fc=await loadAll(); }catch(e){ document.getElementById('status').textContent='Could not load city data: '+e.message; return; }
+  map.addSource('pave',{type:'geojson',data:fc});
+  const w=['interpolate',['linear'],['zoom'],10,1,13,2.2,16,6];
+  map.addLayer({id:'seg-glow',type:'line',source:'pave',layout:{'line-cap':'round'},paint:{'line-width':['*',w,3],'line-blur':4}});
+  map.addLayer({id:'seg',type:'line',source:'pave',layout:{'line-cap':'round','line-join':'round'},paint:{'line-width':w}});
+  map.addLayer({id:'hit',type:'line',source:'pave',paint:{'line-width':14,'line-opacity':0}});
+  paint(); stats(fc);
+  document.getElementById('status').textContent=`${fc.features.length.toLocaleString()} blocks · live from Denver DOTI`;
+  map.on('mouseenter','hit',()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','hit',()=>map.getCanvas().style.cursor='');
+  map.on('click','hit',e=>{
+    const visible=map.queryRenderedFeatures(e.point,{layers:['seg']});
+    const p=(visible[0]||e.features[0]).properties;
+    const nm={mo:'Mill & overlay',hipr:'Hot-in-place recycle',chip:'Chip seal',concrete:'Concrete repair'};
+    const sc=p.score==='null'||p.score==null?null:+p.score;
+    const pc=sc==null?'#6b6f75':sc>=80?'#3ee6a0':sc>=60?'#e3c14f':sc>=35?'#c2703d':'#b55';
+    new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(`<div class="pp">
+      <h3>${p.GIS_FULLNAME}</h3><div class="k">${p.FROMNAME} → ${p.TONAME}</div>
+      <span class="pill" style="background:${pc}">${sc==null?'unscored':'Skate score '+sc}</span>
+      <div><span class="k">Last work:</span> ${nm[p.lastKind]||'unknown'} ${p.lastYear&&p.lastYear!=='null'?'('+p.lastYear+')':''}</div>
+      ${p.done==='true'||p.done===true?`<div><span class="k">Crew:</span> ${p.SMDCrew||'—'}</div>`:''}
+      ${p.planned==='true'||p.planned===true?`<div><span class="k">Planned:</span> ${p.CCD_Treatment} in ${p.Committed_Year}</div>`:''}
+      <div><span class="k">City condition rating:</span> ${p.EstimatedOCR||'—'}</div>
+      <div><span class="k">Utility-cut moratorium thru:</span> ${p.MORATORIUM_THRU_YEAR||'—'}</div>
+      <div class="k" style="margin-top:6px;font-size:11px">${p.TreatmentComment||''}</div></div>`).addTo(map);
+  });
+});
+document.getElementById('modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));mode=b.dataset.m;paint();};
+document.getElementById('hideChip').onchange=paint;
+document.getElementById('hideMinor').onchange=paint;
+document.getElementById('franklin').onclick=()=>map.fitBounds([[-104.9705,39.7395],[-104.9655,39.754]],{padding:80,duration:1200});
+</script>
+</body>
+</html>

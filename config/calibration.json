@@ -1,0 +1,13 @@
+{
+  "_note": "Known-good rider calibration points. Add ~5 streets per city once you have ridden them. The check-scores script reports predicted vs rider band for each entry.",
+  "streets": [
+    {
+      "source": "denver",
+      "name": "N FRANKLIN ST",
+      "from": "E COLFAX AVE",
+      "to": "E 16TH AVE",
+      "rider_band": "excellent",
+      "note": "HIPR 2026 (Colfax–16th segment). Should be excellent: hipr age 0, step_years=3 → index 0 steps → excellent."
+    }
+  ]
+}

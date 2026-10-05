@@ -1,0 +1,58 @@
+{
+  "_note": "Skate score constants. All source → band mappings live here. Edit to retune without touching code.",
+
+  "band_order": ["fresh", "excellent", "good", "fair", "poor", "very_poor", "failed"],
+
+  "bands": {
+    "fresh":     { "score": 97, "label": "Fresh pavement",        "color": "#00e8b0" },
+    "excellent": { "score": 88, "label": "Excellent — glassy",    "color": "#3ee6a0" },
+    "good":      { "score": 76, "label": "Good — smooth",         "color": "#9fd67a" },
+    "fair":      { "score": 62, "label": "Fair — rideable",       "color": "#e3c14f" },
+    "poor":      { "score": 45, "label": "Poor — pick your line", "color": "#c2703d" },
+    "very_poor": { "score": 28, "label": "Very poor — avoid",     "color": "#a0422a" },
+    "failed":    { "score": 10, "label": "Failed — no",           "color": "#7a2020" }
+  },
+
+  "_treatment_note": "start = best possible band (age 0). step_years = how many years before dropping one band. cap = worst allowed best band (chip seal can never look smooth).",
+  "treatment_bands": {
+    "mill_overlay": { "start": "fresh",     "step_years": 3 },
+    "reconstruct":  { "start": "fresh",     "step_years": 3 },
+    "hipr":         { "start": "excellent", "step_years": 3 },
+    "slurry_seal":  { "start": "fair",      "step_years": 3 },
+    "chip_seal":    { "start": "poor",      "step_years": 3, "cap": "poor" },
+    "concrete":     { "start": "fair",      "step_years": 5 }
+  },
+
+  "_pci_note": "Standard ASTM D6433 bands for PCI and OCI (0–100).",
+  "pci_bands": [
+    { "min": 86, "band": "excellent" },
+    { "min": 71, "band": "good" },
+    { "min": 56, "band": "fair" },
+    { "min": 41, "band": "poor" },
+    { "min": 26, "band": "very_poor" },
+    { "min": 0,  "band": "failed" }
+  ],
+
+  "_iri_note": "Aurora uses city-street IRI measurement, NOT highway FHWA thresholds. Map IRI_Category string directly.",
+  "aurora_iri_bands": {
+    "good":         "excellent",
+    "satisfactory": "good",
+    "fair":         "fair",
+    "poor":         "poor",
+    "very poor":    "very_poor",
+    "serious":      "failed",
+    "failed":       "failed"
+  },
+
+  "_ocr_note": "Denver EstimatedOCR text field. confidence=low because it is not refreshed after paving.",
+  "denver_ocr_bands": {
+    "excellent": "excellent",
+    "good":      "good",
+    "fair":      "fair",
+    "poor":      "poor",
+    "very poor": "very_poor",
+    "failed":    "failed"
+  },
+
+  "treatment_wins_within_years": 3
+}

@@ -1,0 +1,17 @@
+{
+  "denver": {
+    "lastEditDate": 1791198397502,
+    "fetchedAt": "2026-10-05",
+    "count": 25559
+  },
+  "aurora": {
+    "lastEditDate": 1765899375897,
+    "fetchedAt": "2026-10-05",
+    "count": 15272
+  },
+  "lakewood": {
+    "lastEditDate": null,
+    "fetchedAt": "2026-10-05",
+    "count": 4993
+  }
+}

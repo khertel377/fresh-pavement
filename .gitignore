@@ -1,0 +1,4 @@
+node_modules/
+.DS_Store
+# Generated at build time — served via GitHub Pages Actions artifact, not git
+public/data/segments.geojson

@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fresh Pavement</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{--bg:#0f1113;--panel:rgba(20,22,25,.92);--ink:#eceae6;--mute:#8d8a85;--line:#2a2d31;--accent:#7dd3a8}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;top:16px;left:16px;width:300px;max-width:calc(100% - 32px);background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:16px;z-index:2}
+  h1{margin:0 0 2px;font-size:18px;letter-spacing:-.01em}
+  .sub{color:var(--mute);font-size:12px;margin-bottom:14px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#1a1d20;padding:4px;border-radius:10px;margin-bottom:12px}
+  .seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;border-radius:7px;font-size:12px;color:var(--mute)}
+  .seg button.on{background:#2c3035;color:var(--ink)}
+  label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0;cursor:pointer}
+  .legend{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px}
+  .row{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .sw{width:22px;height:4px;border-radius:2px;flex:none}
+  .stats{margin-top:12px;border-top:1px solid var(--line);padding-top:12px;font-size:12px;color:var(--mute)}
+  .stats b{color:var(--ink);font-weight:600}
+  .status{font-size:12px;color:var(--accent);margin-top:8px}
+  .jump{all:unset;cursor:pointer;font-size:12px;color:var(--accent);margin-top:8px;display:inline-block}
+  .maplibregl-popup-content{background:#17191c;color:var(--ink);border-radius:10px;padding:12px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .maplibregl-popup-tip{border-top-color:#17191c!important;border-bottom-color:#17191c!important}
+  .pp h3{margin:0 0 2px;font-size:14px}.pp .k{color:var(--mute)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#111;margin:6px 0}
+  .warn{color:#c2703d;font-size:11px;margin-top:4px}
+  @media (max-width:600px){.panel{top:auto;bottom:16px;width:auto;right:16px}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Fresh Pavement</h1>
+  <div class="sub">Denver · Aurora · Lakewood — skate &amp; EUC street quality</div>
+  <div class="seg" id="modes">
+    <button data-m="score" class="on">Skate score</button>
+    <button data-m="y0" id="btn-y0">Paved this year</button>
+    <button data-m="y2">Last 3 seasons</button>
+    <button data-m="planned">Planned</button>
+  </div>
+  <label class="tog"><input type="checkbox" id="hideChip" checked> Hide chip seal</label>
+  <label class="tog"><input type="checkbox" id="hideMinor"> Hide unscored streets</label>
+  <div class="legend" id="legend"></div>
+  <div class="stats" id="stats"></div>
+  <button class="jump" id="franklin">↳ Jump to Franklin (Colfax–26th)</button>
+  <div class="status" id="status">Loading map data…</div>
+</div>
+<script>
+const NOW = new Date().getFullYear();
+document.getElementById('btn-y0').textContent = `Paved ${NOW}`;
+
+const SOURCE_NAMES = { denver: 'Denver DOTI', aurora: 'Aurora', lakewood: 'Lakewood' };
+
+const TREATMENT_NAMES = {
+  mill_overlay: 'Mill &amp; overlay',
+  reconstruct:  'Reconstruct',
+  hipr:         'Hot-in-place recycle',
+  chip_seal:    'Chip seal',
+  concrete:     'Concrete repair',
+  slurry_seal:  'Slurry seal',
+  crack_seal:   'Crack seal',
+  reclamite:    'Reclamite',
+};
+
+const BASIS_LABELS = {
+  'treatment':           'Paving treatment record',
+  'treatment+condition': 'Paving record + condition survey',
+  'pci':                 'Pavement condition index (PCI)',
+  'oci':                 'Pavement condition index (OCI)',
+  'iri':                 'Roughness survey (IRI)',
+  'pci+iri':             'PCI + roughness survey (IRI)',
+  'rating':              'City condition rating',
+};
+
+// 7-band color ramp — one color per band, consistent across all cities
+const BAND_COLORS = {
+  fresh:     '#00e8b0',
+  excellent: '#3ee6a0',
+  good:      '#9fd67a',
+  fair:      '#e3c14f',
+  poor:      '#c2703d',
+  very_poor: '#a0422a',
+  failed:    '#7a2020',
+};
+const BAND_LABELS = {
+  fresh:     'Fresh pavement',
+  excellent: 'Excellent — glassy',
+  good:      'Good — smooth',
+  fair:      'Fair — rideable',
+  poor:      'Poor — pick your line',
+  very_poor: 'Very poor — avoid',
+  failed:    'Failed — no',
+};
+const BAND_ORDER = ['fresh', 'excellent', 'good', 'fair', 'poor', 'very_poor', 'failed'];
+
+// MapLibre match expression: band → color (unscored/null → dim neutral)
+const bandColorExpr = ['match', ['get', 'band'],
+  'fresh',     BAND_COLORS.fresh,
+  'excellent', BAND_COLORS.excellent,
+  'good',      BAND_COLORS.good,
+  'fair',      BAND_COLORS.fair,
+  'poor',      BAND_COLORS.poor,
+  'very_poor', BAND_COLORS.very_poor,
+  'failed',    BAND_COLORS.failed,
+  '#3a3d42']; // unscored fallback
+
+const kindColorExpr = k => ['match', ['get', k],
+  'mill_overlay', '#7dd3a8',
+  'reconstruct',  '#7dd3a8',
+  'hipr',         '#8ab4f8',
+  'chip_seal',    '#e8a87c',
+  'concrete',     '#c9b8f0',
+  '#6b6f75'];
+
+let mode = 'score';
+
+// --- map ------------------------------------------------------------------
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
+  center: [-104.93, 39.72],
+  zoom: 10.8,
+  attributionControl: { compact: true },
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true }), 'top-right');
+
+function filterFor() {
+  const hideChip  = document.getElementById('hideChip').checked;
+  const hideMinor = document.getElementById('hideMinor').checked;
+  const f = ['all'];
+  if (mode === 'y0')      f.push(['==', ['get', 'lt_year'], NOW]);
+  if (mode === 'y2')      f.push(['all',
+    ['>=', ['coalesce', ['get', 'lt_year'], 0], NOW - 2],
+    ['!=', ['get', 'lt_type'], null]]);
+  if (mode === 'planned') f.push(['!=', ['get', 'pl_year'], null]);
+  const kf = mode === 'planned' ? 'pl_type' : 'lt_type';
+  if (hideChip)  f.push(['!=', ['get', kf], 'chip_seal']);
+  if (hideMinor && mode === 'score') f.push(['!=', ['get', 'band'], null]);
+  return f;
+}
+
+function paint() {
+  if (!map.getLayer('seg')) return;
+  let color;
+  if (mode === 'score') {
+    color = bandColorExpr;
+    // Unscored streets dim out; scored streets are opaque
+    map.setPaintProperty('seg',      'line-opacity',
+      ['case', ['==', ['get', 'band'], null], 0.22, 0.95]);
+    map.setPaintProperty('seg-glow', 'line-opacity', 0);
+  } else if (mode === 'planned') {
+    color = ['match', ['get', 'pl_year'],
+      NOW,     '#f6d365',
+      NOW + 1, '#fda085',
+      NOW + 2, '#f38181',
+      NOW + 3, '#c56cf0',
+      '#7f7fd5'];
+    map.setPaintProperty('seg',      'line-opacity', 0.95);
+    map.setPaintProperty('seg-glow', 'line-opacity', 0.25);
+  } else {
+    color = kindColorExpr('lt_type');
+    map.setPaintProperty('seg',      'line-opacity', 0.95);
+    map.setPaintProperty('seg-glow', 'line-opacity', 0.25);
+  }
+  map.setPaintProperty('seg',      'line-color', color);
+  map.setPaintProperty('seg-glow', 'line-color', color);
+  map.setFilter('seg',      filterFor());
+  map.setFilter('seg-glow', filterFor());
+  legend();
+}
+
+function legend() {
+  const L = document.getElementById('legend');
+  const row = (c, t) => `<div class="row"><span class="sw" style="background:${c}"></span>${t}</div>`;
+  if (mode === 'score') {
+    L.innerHTML = BAND_ORDER.map(b => row(BAND_COLORS[b], BAND_LABELS[b])).join('') +
+      row('#3a3d42', '<span style="color:var(--mute)">Unscored</span>') +
+      `<div style="color:var(--mute);margin-top:8px;font-size:11px">Based on paving records and condition surveys. Not yet rider-validated.</div>`;
+  } else if (mode === 'planned') {
+    L.innerHTML = [NOW, NOW+1, NOW+2, NOW+3]
+      .map((y, i) => row(['#f6d365','#fda085','#f38181','#c56cf0'][i], y)).join('') +
+      row('#7f7fd5', `${NOW+4}+`);
+  } else {
+    L.innerHTML =
+      row('#7dd3a8', 'Mill &amp; overlay / reconstruct') +
+      row('#8ab4f8', 'Hot-in-place recycle') +
+      row('#e8a87c', 'Chip seal — rough aggregate') +
+      row('#c9b8f0', 'Concrete repair');
+  }
+}
+
+function stats(fc) {
+  const bySource = {};
+  let totalDone = 0, totalPlanned = 0;
+  for (const f of fc.features) {
+    const p = f.properties;
+    if (!bySource[p.source]) bySource[p.source] = { done: 0, planned: 0 };
+    if (p.lt_year === NOW)                            { bySource[p.source].done++;    totalDone++;    }
+    if (p.pl_year != null && p.pl_year >= NOW)        { bySource[p.source].planned++; totalPlanned++; }
+  }
+  const parts = Object.entries(bySource)
+    .filter(([, v]) => v.done + v.planned > 0)
+    .map(([k, v]) => `${SOURCE_NAMES[k]||k}: ${v.done} done · ${v.planned} planned`)
+    .join('<br>');
+  document.getElementById('stats').innerHTML =
+    `<b>${NOW} season:</b> ${totalDone.toLocaleString()} segs paved · ${totalPlanned.toLocaleString()} planned` +
+    (parts ? `<br><span style="font-size:11px">${parts}</span>` : '');
+}
+
+// --- load & render --------------------------------------------------------
+map.on('load', async () => {
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = 'Loading map data…';
+
+  let fc;
+  try {
+    const res = await fetch('./data/segments.geojson');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    fc = await res.json();
+  } catch (e) {
+    statusEl.textContent = 'Could not load map data: ' + e.message;
+    return;
+  }
+
+  map.addSource('pave', { type: 'geojson', data: fc });
+  const w = ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2.2, 16, 6];
+  map.addLayer({ id: 'seg-glow', type: 'line', source: 'pave',
+    layout: { 'line-cap': 'round' },
+    paint: { 'line-width': ['*', w, 3], 'line-blur': 4 } });
+  map.addLayer({ id: 'seg', type: 'line', source: 'pave',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': w } });
+  map.addLayer({ id: 'hit', type: 'line', source: 'pave',
+    paint: { 'line-width': 14, 'line-opacity': 0 } });
+
+  paint();
+  stats(fc);
+
+  const runDates = {};
+  for (const f of fc.features) {
+    if (f.properties.run_date && !runDates[f.properties.source]) {
+      runDates[f.properties.source] = f.properties.run_date;
+    }
+  }
+  const latestDate = Object.values(runDates).sort().pop() || '—';
+  statusEl.textContent = `${fc.features.length.toLocaleString()} segments · data as of ${latestDate}`;
+
+  // --- popup ---------------------------------------------------------------
+  map.on('mouseenter', 'hit', () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', 'hit', () => map.getCanvas().style.cursor = '');
+  map.on('click', 'hit', e => {
+    const visible = map.queryRenderedFeatures(e.point, { layers: ['seg'] });
+    const p = (visible[0] || e.features[0]).properties;
+
+    const bandColor = BAND_COLORS[p.band] || '#6b6f75';
+    const bandLabel = BAND_LABELS[p.band] || 'Unscored';
+    const txName = t => TREATMENT_NAMES[t] || t || 'unknown';
+    const runDate = runDates[p.source] || p.run_date || '—';
+    const basisLabel = BASIS_LABELS[p.basis] || p.basis || '—';
+    const lowConf = p.confidence === 'low';
+
+    new maplibregl.Popup({ maxWidth: '290px' })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div class="pp">
+        <h3>${p.name || '(unnamed)'}</h3>
+        ${p.from ? `<div class="k">${p.from} → ${p.to}</div>` : ''}
+        <span class="pill" style="background:${bandColor}">${bandLabel}</span>
+        <div><span class="k">Last work:</span> ${txName(p.lt_type)}${p.lt_year ? ' (' + p.lt_year + ')' : ''}</div>
+        ${p.crew     ? `<div><span class="k">Crew:</span> ${p.crew}</div>` : ''}
+        ${p.pl_year  ? `<div><span class="k">Planned:</span> ${txName(p.pl_type)} in ${p.pl_year}</div>` : ''}
+        ${p.cond_label != null ? `<div><span class="k">Condition rating:</span> ${p.cond_label}</div>` : ''}
+        ${p.morat_year ? `<div><span class="k">Utility-cut moratorium thru:</span> ${p.morat_year}</div>` : ''}
+        ${p.tx_comment ? `<div class="k" style="margin-top:6px;font-size:11px">${p.tx_comment}</div>` : ''}
+        <div style="margin-top:8px;font-size:11px">
+          <span class="k">Score from:</span> ${basisLabel}
+          ${lowConf ? '<div class="warn">Low confidence — city rating not refreshed after paving</div>' : ''}
+        </div>
+        <div class="k" style="font-size:11px">${SOURCE_NAMES[p.source]||p.source} · data as of ${runDate}</div>
+      </div>`)
+      .addTo(map);
+  });
+});
+
+// --- controls -------------------------------------------------------------
+document.getElementById('modes').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  document.querySelectorAll('#modes button').forEach(x => x.classList.toggle('on', x === b));
+  mode = b.dataset.m;
+  paint();
+};
+document.getElementById('hideChip').onchange  = paint;
+document.getElementById('hideMinor').onchange = paint;
+document.getElementById('franklin').onclick   =
+  () => map.fitBounds([[-104.9705, 39.7395], [-104.9655, 39.754]], { padding: 80, duration: 1200 });
+</script>
+</body>
+</html>
