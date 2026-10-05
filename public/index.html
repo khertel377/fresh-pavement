@@ -622,8 +622,12 @@ map.on('load', async () => {
   for (const [cls, hex] of Object.entries(RIDE_COLORS)) {
     if (cls === 'none') continue;
     for (const kind of ['fair', 'rough']) {
-      const img = grainSprite(hex, kind);
-      map.addImage(`grain_${cls}_${kind}`, img, { pixelRatio: 2 });
+      try {
+        const img = grainSprite(hex, kind);
+        map.addImage(`grain_${cls}_${kind}`,
+          { width: img.width, height: img.height, data: new Uint8Array(img.data.buffer) },
+          { pixelRatio: 2 });
+      } catch(_) { /* canvas/image registration failure — grain falls back to solid */ }
     }
   }
 
@@ -726,7 +730,7 @@ map.on('load', async () => {
         layout:{'line-cap':'round',visibility:'none'},
         paint:{
           'line-width': classW,
-          'line-pattern': ['concat','grain_',['get','ride_class'],'_',['get','surface']],
+          'line-pattern': ['image',['concat','grain_',['get','ride_class'],'_',['get','surface']]],
           'line-opacity': 1,
         }});
 
