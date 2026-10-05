@@ -21,6 +21,7 @@ h1{margin:0 0 2px;font-size:18px;letter-spacing:-.01em}
 .seg{display:grid;gap:4px;background:#1a1d20;padding:4px;border-radius:10px;margin-bottom:8px}
 .seg.cols2{grid-template-columns:1fr 1fr}
 .seg.cols3{grid-template-columns:1fr 1fr 1fr}
+.seg.cols4{grid-template-columns:1fr 1fr 1fr 1fr}
 .seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;border-radius:7px;font-size:12px;color:var(--mute)}
 .seg button.on{background:#2c3035;color:var(--ink)}
 label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cursor:pointer}
@@ -41,6 +42,19 @@ label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cu
 .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#111;margin:6px 0}
 .lts-pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600;margin-left:6px}
 .warn{color:#c2703d;font-size:11px;margin-top:4px}
+.pp-row{display:flex;align-items:baseline;gap:6px;margin:3px 0;font-size:12px}
+.pp-q{color:var(--mute);font-size:10px;text-transform:uppercase;letter-spacing:.05em;min-width:60px}
+.pp-conf{font-size:10px;color:var(--mute);margin-top:6px}
+
+/* ── ride legend matrix ──────────────────────────────────────────────── */
+.ride-matrix{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;margin-top:6px}
+.ride-swatch{width:28px;height:4px;border-radius:2px;flex:none}
+.ride-swatch.thick{height:8px;border-radius:3px}
+.ride-swatch.cased{height:8px;border-radius:3px;box-shadow:0 0 0 2px #0a1a0e}
+.ride-tex-fair{opacity:.75}
+.ride-tex-rough{opacity:.45}
+.ride-low-conf{opacity:.45}
+.ride-matrix-section{grid-column:1/-1;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-top:8px;margin-bottom:2px}
 
 /* ── inline term ────────────────────────────────────────────────────── */
 .term{all:unset;cursor:pointer;border-bottom:1px dotted var(--mute);display:inline}
@@ -114,13 +128,14 @@ label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cu
     <h1>Fresh Pavement</h1>
     <div class="sub">Denver metro — skate &amp; EUC street quality</div>
 
-    <div class="seg cols3" id="layerMode">
-      <button data-l="smooth" class="on">Smoothness</button>
-      <button data-l="stress">Traffic stress</button>
-      <button data-l="facility">Bike facilities</button>
+    <div class="seg cols4" id="layerMode">
+      <button data-l="ride" class="on">Ride</button>
+      <button data-l="smooth">Smooth</button>
+      <button data-l="stress">Stress</button>
+      <button data-l="facility">Facilities</button>
     </div>
 
-    <div id="filterSmooth">
+    <div id="filterSmooth" style="display:none">
       <div class="seg cols2" id="modes">
         <button data-m="score" class="on">Skate score</button>
         <button data-m="y0" id="btn-y0">Paved this year</button>
@@ -134,6 +149,11 @@ label.tog{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0;cu
     <div id="filterNetwork" style="display:none">
       <label class="tog"><input type="checkbox" id="goodToRide"> Good to ride (smooth + low stress)</label>
       <div style="font-size:11px;color:var(--mute);margin:2px 0 6px 22px">Band ≥ good · LTS ≤ 2</div>
+    </div>
+
+    <div id="filterRide">
+      <label class="tog"><input type="checkbox" id="hideStress"> Hide high-stress roads</label>
+      <label class="tog"><input type="checkbox" id="hideRough"> Hide rough surfaces</label>
     </div>
 
     <div class="legend" id="legend"></div>
@@ -194,7 +214,6 @@ async function loadGlossary() {
   } catch(e) { console.warn('glossary load failed', e); }
 }
 
-// Map from UI keys → glossary ids
 const FAC_TO_GUIDE = {
   protected_lane: 'protected_lane', buffered_lane: 'buffered_lane',
   painted_lane: 'painted_lane', neighborhood_bikeway: 'neighborhood_bikeway',
@@ -208,7 +227,6 @@ const TREAT_TO_GUIDE = {
 };
 const LTS_TO_GUIDE = { 1: 'lts1', 2: 'lts2', 3: 'lts3', 4: 'lts4' };
 
-// Build an inline term button HTML string
 function termHtml(id, label, short = false) {
   const t = glossary.get(id);
   if (!t) return label;
@@ -219,7 +237,7 @@ function termHtml(id, label, short = false) {
   return `<button class="term" data-guide="${id}">${esc}</button>`;
 }
 
-// ── Map data ─────────────────────────────────────────────────────────────
+// ── Map data constants ────────────────────────────────────────────────────
 const SOURCE_NAMES = { denver: 'Denver DOTI', aurora: 'Aurora', lakewood: 'Lakewood' };
 
 const TREATMENT_NAMES = {
@@ -267,6 +285,34 @@ const FAC_LABELS = {
   neighborhood_bikeway:'Neighborhood bikeway', sidepath:'Sidepath', sharrow:'Sharrow',
 };
 
+// ── Ride view colors ──────────────────────────────────────────────────────
+const RIDE_COLORS = {
+  path:    '#3fd68f',
+  lane:    '#3fd68f',
+  bikeway: '#9fe6bf',
+  calm:    '#d9d4c7',
+  busy:    '#e8a33d',
+  hostile: '#e5534b',
+  none:    '#3a3f45',
+};
+
+const RIDE_CLASS_LABELS = {
+  path:    'Trail / protected lane',
+  lane:    'Bike lane / buffered lane',
+  bikeway: 'Neighborhood bikeway',
+  calm:    'Calm street (LTS 1–2)',
+  busy:    'Busy road (LTS 3)',
+  hostile: 'High-stress road (LTS 4)',
+};
+
+const SURFACE_LABELS = {
+  fresh:  'Fresh pavement',
+  smooth: 'Smooth',
+  fair:   'Fair',
+  rough:  'Rough',
+  none:   'No surface data',
+};
+
 const bandColorExpr = ['match',['get','band'],
   'fresh',BAND_COLORS.fresh,'excellent',BAND_COLORS.excellent,'good',BAND_COLORS.good,
   'fair',BAND_COLORS.fair,'poor',BAND_COLORS.poor,'very_poor',BAND_COLORS.very_poor,
@@ -281,7 +327,7 @@ const kindColorExpr = ['match',['get','lt_type'],
   'mill_overlay','#7dd3a8','reconstruct','#7dd3a8','hipr','#8ab4f8',
   'chip_seal','#e8a87c','concrete','#c9b8f0','#6b6f75'];
 
-let layerMode = 'smooth';
+let layerMode = 'ride';
 let mode = 'score';
 
 // ── Map ───────────────────────────────────────────────────────────────────
@@ -293,6 +339,25 @@ const map = new maplibregl.Map({
 });
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 map.addControl(new maplibregl.GeolocateControl({ trackUserLocation: true }), 'top-right');
+
+// ── Canvas grain patterns ──────────────────────────────────────────────
+function makeGrainPattern(density, pixW, pixH) {
+  const canvas = document.createElement('canvas');
+  canvas.width = pixW; canvas.height = pixH;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(pixW, pixH);
+  let seed = (density * 10000) | 0;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0xffffffff; };
+  for (let i = 0; i < pixW * pixH; i++) {
+    if (rand() < density) {
+      // Semi-transparent black → darkens whatever is beneath
+      img.data[i * 4 + 3] = ((0.2 + rand() * 0.35) * 255) | 0;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const data = ctx.getImageData(0, 0, pixW, pixH);
+  return { width: pixW, height: pixH, data: new Uint8ClampedArray(data.data) };
+}
 
 function smoothFilter() {
   const hideChip  = document.getElementById('hideChip').checked;
@@ -316,16 +381,68 @@ function networkFilter() {
   return ['all'];
 }
 
+// ── Ride view filter ──────────────────────────────────────────────────────
+function rideFilter(rideClass) {
+  const hideStress = document.getElementById('hideStress')?.checked;
+  const hideRough  = document.getElementById('hideRough')?.checked;
+  const f = ['all'];
+
+  if (Array.isArray(rideClass)) {
+    f.push(['in',['get','ride_class'],['literal',rideClass]]);
+  } else if (rideClass) {
+    f.push(['==',['get','ride_class'],rideClass]);
+  }
+
+  if (hideRough) f.push(['!=',['get','surface'],'rough']);
+
+  return f;
+}
+
+// Confidence → base opacity (high:1, medium:0.78, low:0.45)
+const confOpacityExpr = ['match',['get','confidence'],'high',1.0,'medium',0.78,'low',0.45,0.35];
+
+// Calm streets fade further at low zoom
+const calmOpacityExpr = ['*', confOpacityExpr,
+  ['interpolate',['linear'],['zoom'],10,0.4,12,0.55,14,1.0]];
+
+// Surface → opacity multiplier (used below z14 as roughness cue)
+const surfOpacityExpr = ['match',['get','surface'],'fresh',1.0,'smooth',1.0,'fair',0.82,'rough',0.55,'none',0.3,1.0];
+
+// Combined calm surface opacity
+const calmSurfOpacity = ['*', calmOpacityExpr, surfOpacityExpr];
+
+// Widths
+const rideW = ['interpolate',['linear'],['zoom'],10,1,12,1.5,14,2.5,16,5];
+const busyW = ['interpolate',['linear'],['zoom'],10,1.2,12,1.8,14,3,16,6];
+const laneW = ['interpolate',['linear'],['zoom'],10,2,12,3,14,5,16,9];
+const pathW = ['interpolate',['linear'],['zoom'],10,3,12,5,14,8,16,14];
+const casingW = ['interpolate',['linear'],['zoom'],10,5,12,8,14,12,16,20];
+
 function paint() {
   const hasPave    = map.getLayer('seg');
   const hasNetwork = map.getLayer('net');
-  if (!hasPave || !hasNetwork) return;
+  if (!hasPave && !hasNetwork) return;
 
   const showSmooth = layerMode === 'smooth';
-  for (const id of ['seg','seg-glow','hit'])     map.setLayoutProperty(id,'visibility',showSmooth?'visible':'none');
-  for (const id of ['net','net-glow','net-hit']) map.setLayoutProperty(id,'visibility',showSmooth?'none':'visible');
+  const showNetwork = layerMode === 'stress' || layerMode === 'facility';
+  const showRide   = layerMode === 'ride';
 
-  if (showSmooth) {
+  const rideLayerIds = ['ride-fresh-glow','ride-none','ride-calm','ride-busy','ride-hostile',
+                        'ride-bikeway','ride-lane','ride-path-casing','ride-path',
+                        'ride-fresh-hl','ride-grain-fair','ride-grain-rough','ride-hit'];
+
+  if (hasPave) {
+    for (const id of ['seg','seg-glow','hit']) map.setLayoutProperty(id,'visibility',showSmooth?'visible':'none');
+  }
+  if (hasNetwork) {
+    const netVis = showNetwork ? 'visible' : 'none';
+    for (const id of ['net','net-glow','net-hit']) map.setLayoutProperty(id,'visibility',netVis);
+    for (const id of rideLayerIds) {
+      if (map.getLayer(id)) map.setLayoutProperty(id,'visibility',showRide?'visible':'none');
+    }
+  }
+
+  if (showSmooth && hasPave) {
     let color;
     if (mode === 'score') {
       color = bandColorExpr;
@@ -344,7 +461,9 @@ function paint() {
     map.setPaintProperty('seg-glow','line-color',color);
     map.setFilter('seg',smoothFilter());
     map.setFilter('seg-glow',smoothFilter());
-  } else {
+  }
+
+  if (showNetwork && hasNetwork) {
     const color = layerMode === 'facility' ? facColorExpr : ltsColorExpr;
     const filt  = networkFilter();
     map.setPaintProperty('net','line-color',color);
@@ -357,12 +476,92 @@ function paint() {
     map.setFilter('net',filt);
     map.setFilter('net-glow',filt);
   }
+
+  if (showRide && hasNetwork) {
+    paintRide();
+  }
+
   legend();
+}
+
+function paintRide() {
+  const hideStress = document.getElementById('hideStress')?.checked;
+  const hideRough  = document.getElementById('hideRough')?.checked;
+  const stressOpacity = hideStress ? 0.12 : 1;
+
+  // Surface-filtered opacity: if hideRough, rough surfaces drop to 10%
+  const roughOpacity = (expr) => hideRough
+    ? ['case',['==',['get','surface'],'rough'],0.1,expr]
+    : expr;
+
+  // calm
+  map.setPaintProperty('ride-calm','line-opacity',roughOpacity(calmSurfOpacity));
+  map.setFilter('ride-calm',rideFilter('calm'));
+
+  // busy
+  map.setPaintProperty('ride-busy','line-opacity',
+    roughOpacity(['*',['*',confOpacityExpr,surfOpacityExpr],stressOpacity]));
+  map.setFilter('ride-busy',rideFilter('busy'));
+
+  // hostile
+  map.setPaintProperty('ride-hostile','line-opacity',
+    roughOpacity(['*',['*',confOpacityExpr,surfOpacityExpr],stressOpacity]));
+  map.setFilter('ride-hostile',rideFilter('hostile'));
+
+  // bikeway
+  map.setPaintProperty('ride-bikeway','line-opacity',
+    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
+  map.setFilter('ride-bikeway',rideFilter('bikeway'));
+
+  // lane
+  map.setPaintProperty('ride-lane','line-opacity',
+    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
+  map.setFilter('ride-lane',rideFilter('lane'));
+
+  // path casing + path
+  map.setPaintProperty('ride-path-casing','line-opacity',
+    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
+  map.setPaintProperty('ride-path','line-opacity',
+    roughOpacity(['*',confOpacityExpr,surfOpacityExpr]));
+  map.setFilter('ride-path-casing',rideFilter('path'));
+  map.setFilter('ride-path',rideFilter('path'));
+
+  // grain overlays — only show at z14+
+  const grainF_fair  = ['all',['==',['get','surface'],'fair'], ...(hideRough?[['literal',false]]:[])];
+  const grainF_rough = ['all',['==',['get','surface'],'rough'],...(hideRough?[['literal',false]]:[])];
+  map.setFilter('ride-grain-fair', grainF_fair);
+  map.setFilter('ride-grain-rough', grainF_rough);
 }
 
 function legend() {
   const L = document.getElementById('legend');
-  const row = (c, html) => `<div class="row"><span class="sw" style="background:${c}"></span>${html}</div>`;
+  const row = (c, html, extraClass = '') =>
+    `<div class="row"><span class="sw ${extraClass}" style="background:${c}"></span>${html}</div>`;
+
+  if (layerMode === 'ride') {
+    L.innerHTML = `
+      <div class="ride-matrix">
+        <div class="ride-matrix-section">Space &amp; stress (hue)</div>
+        <span class="sw" style="background:${RIDE_COLORS.path}"></span><span>${termHtml('shared_use_path','Trail / protected lane')}</span>
+        <span class="sw" style="background:${RIDE_COLORS.lane}"></span><span>${termHtml('painted_lane','Bike lane / buffered lane')}</span>
+        <span class="sw" style="background:${RIDE_COLORS.bikeway}"></span><span>${termHtml('neighborhood_bikeway','Neighborhood bikeway')}</span>
+        <span class="sw" style="background:${RIDE_COLORS.calm}"></span><span>Calm street ${termHtml('lts1','LTS 1–2',true)}</span>
+        <span class="sw" style="background:${RIDE_COLORS.busy}"></span><span>Busy road ${termHtml('lts3','LTS 3',true)}</span>
+        <span class="sw" style="background:${RIDE_COLORS.hostile}"></span><span>High-stress ${termHtml('lts4','LTS 4',true)}</span>
+        <div class="ride-matrix-section">Protection (weight)</div>
+        <span class="sw cased" style="background:${RIDE_COLORS.path}"></span><span>Separated from cars</span>
+        <span class="sw thick" style="background:${RIDE_COLORS.lane}"></span><span>Paint between you and cars</span>
+        <span class="sw" style="background:${RIDE_COLORS.calm}"></span><span>Calm / bikeway</span>
+        <div class="ride-matrix-section">Surface (opacity)</div>
+        <span class="sw" style="background:${RIDE_COLORS.calm}"></span><span>Smooth — solid</span>
+        <span class="sw ride-tex-fair" style="background:${RIDE_COLORS.calm}"></span><span>Fair — faded</span>
+        <span class="sw ride-tex-rough" style="background:${RIDE_COLORS.calm}"></span><span>Rough — dim</span>
+        <div class="ride-matrix-section">Confidence</div>
+        <span class="sw ride-low-conf" style="background:${RIDE_COLORS.calm}"></span><span style="color:var(--mute)">Estimated (default speed)</span>
+      </div>
+      <div style="color:var(--mute);margin-top:8px;font-size:11px">75% of edges use default speed — renders dim until speed data improves.</div>`;
+    return;
+  }
 
   if (layerMode === 'smooth') {
     if (mode === 'score') {
@@ -413,6 +612,10 @@ map.on('load', async () => {
   const statusEl = document.getElementById('status');
   const lineW = ['interpolate',['linear'],['zoom'],10,1,13,2.2,16,6];
 
+  // Register grain pattern images
+  map.addImage('grain_fair',  makeGrainPattern(0.22, 32, 8));
+  map.addImage('grain_rough', makeGrainPattern(0.48, 16, 8));
+
   let fc;
   try {
     const res = await fetch('./data/segments.geojson');
@@ -443,6 +646,8 @@ map.on('load', async () => {
       map.addSource('network',{type:'vector',
         url:`pmtiles://${new URL(tilesUrl,location.href).href}`,
         attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});
+
+      // ── Stress/facility layers (existing) ───────────────────────────
       map.addLayer({id:'net-glow',type:'line',source:'network','source-layer':'network',
         layout:{'line-cap':'round',visibility:'none'},
         paint:{'line-width':['*',lineW,3],'line-blur':4,'line-opacity':0.20}});
@@ -451,6 +656,98 @@ map.on('load', async () => {
         paint:{'line-width':lineW,'line-opacity':0.88}});
       map.addLayer({id:'net-hit',type:'line',source:'network','source-layer':'network',
         layout:{visibility:'none'},paint:{'line-width':14,'line-opacity':0}});
+
+      // ── Ride view layers (bottom → top) ──────────────────────────────
+      const SRC = {type:'line',source:'network','source-layer':'network'};
+
+      // Fresh glow — blurred wide layer behind everything
+      map.addLayer({...SRC, id:'ride-fresh-glow',
+        filter:['==',['get','surface'],'fresh'],
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':['*',pathW,3],'line-color':RIDE_COLORS.calm,
+               'line-opacity':['*',confOpacityExpr,0.22],'line-blur':8}});
+
+      // No-data hairlines
+      map.addLayer({...SRC, id:'ride-none',
+        filter:['==',['get','surface'],'none'],
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':rideW,'line-color':RIDE_COLORS.none,'line-opacity':0.25}});
+
+      // Calm streets
+      map.addLayer({...SRC, id:'ride-calm',
+        filter:['==',['get','ride_class'],'calm'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':rideW,'line-color':RIDE_COLORS.calm,'line-opacity':calmSurfOpacity}});
+
+      // Busy roads
+      map.addLayer({...SRC, id:'ride-busy',
+        filter:['==',['get','ride_class'],'busy'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':busyW,'line-color':RIDE_COLORS.busy,
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Hostile roads
+      map.addLayer({...SRC, id:'ride-hostile',
+        filter:['==',['get','ride_class'],'hostile'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':busyW,'line-color':RIDE_COLORS.hostile,
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Neighborhood bikeways
+      map.addLayer({...SRC, id:'ride-bikeway',
+        filter:['==',['get','ride_class'],'bikeway'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':rideW,'line-color':RIDE_COLORS.bikeway,
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Bike lanes
+      map.addLayer({...SRC, id:'ride-lane',
+        filter:['==',['get','ride_class'],'lane'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':laneW,'line-color':RIDE_COLORS.lane,
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Paths — dark casing
+      map.addLayer({...SRC, id:'ride-path-casing',
+        filter:['==',['get','ride_class'],'path'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':casingW,'line-color':'#0a1a0e',
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Paths — colored line on top of casing
+      map.addLayer({...SRC, id:'ride-path',
+        filter:['==',['get','ride_class'],'path'],
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{'line-width':pathW,'line-color':RIDE_COLORS.path,
+               'line-opacity':['*',confOpacityExpr,surfOpacityExpr]}});
+
+      // Fresh highlight — thin bright line on top of paths
+      map.addLayer({...SRC, id:'ride-fresh-hl',
+        filter:['==',['get','surface'],'fresh'],
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':1.5,'line-color':'#efffee',
+               'line-opacity':['*',confOpacityExpr,0.55]}});
+
+      // Grain overlays for fair/rough (canvas pattern, only visible z14+)
+      map.addLayer({...SRC, id:'ride-grain-fair',
+        filter:['==',['get','surface'],'fair'],
+        minzoom:14,
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':['max',rideW,pathW],'line-pattern':'grain_fair',
+               'line-opacity':['*',confOpacityExpr,0.7]}});
+
+      map.addLayer({...SRC, id:'ride-grain-rough',
+        filter:['==',['get','surface'],'rough'],
+        minzoom:14,
+        layout:{'line-cap':'round',visibility:'none'},
+        paint:{'line-width':['max',rideW,pathW],'line-pattern':'grain_rough',
+               'line-opacity':['*',confOpacityExpr,0.7]}});
+
+      // Invisible click target
+      map.addLayer({...SRC, id:'ride-hit',
+        layout:{visibility:'none'},
+        paint:{'line-width':14,'line-opacity':0}});
+
       hasNetwork = true;
     }
   } catch(_) {}
@@ -459,6 +756,11 @@ map.on('load', async () => {
     document.querySelectorAll('#layerMode button:not([data-l="smooth"])').forEach(b => {
       b.disabled = true; b.title = 'Network tiles not built yet — run npm run network:all'; b.style.opacity = '0.4';
     });
+    // Fall back to smooth mode
+    layerMode = 'smooth';
+    document.querySelectorAll('#layerMode button').forEach(b => b.classList.toggle('on', b.dataset.l === 'smooth'));
+    document.getElementById('filterSmooth').style.display = '';
+    document.getElementById('filterRide').style.display   = 'none';
   }
 
   paint();
@@ -503,7 +805,7 @@ map.on('load', async () => {
       .addTo(map);
   });
 
-  // ── Network popup ───────────────────────────────────────────────────────
+  // ── Network popup (stress / facility modes) ─────────────────────────────
   if (hasNetwork) {
     map.on('mouseenter','net-hit',()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave','net-hit',()=>map.getCanvas().style.cursor='');
@@ -538,6 +840,65 @@ map.on('load', async () => {
         </div>`)
         .addTo(map);
     });
+
+    // ── Ride popup ─────────────────────────────────────────────────────────
+    map.on('mouseenter','ride-hit',()=>map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave','ride-hit',()=>map.getCanvas().style.cursor='');
+    map.on('click','ride-hit',e=>{
+      if (layerMode !== 'ride') return;
+      const visible = map.queryRenderedFeatures(e.point,
+        {layers:['ride-path','ride-lane','ride-bikeway','ride-calm','ride-busy','ride-hostile']});
+      const p = (visible[0]||e.features[0]).properties;
+
+      const rcClass = p.ride_class || 'calm';
+      const rcColor = RIDE_COLORS[rcClass] || '#888';
+      const rcLabel = RIDE_CLASS_LABELS[rcClass] || rcClass;
+
+      const facKey = p.facility_type;
+      const facGid = FAC_TO_GUIDE[facKey];
+      const facLabel = FAC_LABELS[facKey] || facKey;
+      const facHtml  = facGid ? termHtml(facGid, facLabel) : (facLabel || '—');
+
+      const ltsGid   = LTS_TO_GUIDE[p.lts];
+      const ltsColor = LTS_COLORS[p.lts] || '#888';
+      const ltsLabel = LTS_LABELS[p.lts] || `LTS ${p.lts}`;
+      const ltsHtml  = ltsGid ? termHtml(ltsGid, ltsLabel) : ltsLabel;
+
+      const surfLabel = SURFACE_LABELS[p.surface] || p.surface || '—';
+      const bandColor = BAND_COLORS[p.band] || null;
+      const bandLabel = BAND_LABELS[p.band] || null;
+
+      const speedNote = p.speed_src === 'default' ? ` (assumed — no data)` :
+                        p.speed_src === 'drcog'   ? ` (DRCOG data)` : '';
+      const confLabel = { high:'Measured data', medium:'Mostly measured', low:'Estimated (default speed)' }[p.confidence] || p.confidence;
+      const confColor = { high:'#4ade80', medium:'#fbbf24', low:'var(--mute)' }[p.confidence] || 'var(--mute)';
+
+      new maplibregl.Popup({maxWidth:'320px'})
+        .setLngLat(e.lngLat)
+        .setHTML(`<div class="pp">
+          <h3>${p.name||'(unnamed)'}</h3>
+          <div class="k" style="font-size:11px">${p.highway||''}</div>
+          <div class="pp-row" style="margin-top:8px">
+            <span class="pp-q">Space</span>
+            <span>${facKey ? `<span style="color:${rcColor}">${facHtml}</span>` : `<span style="color:${rcColor}">${rcLabel}</span>`}</span>
+          </div>
+          <div class="pp-row">
+            <span class="pp-q">Stress</span>
+            <span style="color:${ltsColor}">${ltsHtml}</span>
+            <span class="k" style="font-size:11px">${p.speed_mph} mph${speedNote} · ${p.lanes} lanes</span>
+          </div>
+          <div class="pp-row">
+            <span class="pp-q">Surface</span>
+            <span>${bandColor
+              ? `<span class="pill" style="background:${bandColor};color:#111;margin:0">${bandLabel}</span>`
+              : surfLabel}
+            ${p.pave_src ? `<span class="k" style="font-size:10px"> · ${SOURCE_NAMES[p.pave_src]||p.pave_src}</span>` : ''}
+            </span>
+          </div>
+          <div class="pp-conf">Confidence: <span style="color:${confColor}">${confLabel}</span></div>
+        </div>`)
+        .addTo(map);
+    });
   }
 
   // Check for #guide deep link after everything loads
@@ -551,7 +912,8 @@ document.getElementById('layerMode').onclick = e => {
   document.querySelectorAll('#layerMode button').forEach(x=>x.classList.toggle('on',x===b));
   layerMode = b.dataset.l;
   document.getElementById('filterSmooth').style.display  = layerMode==='smooth'?'':'none';
-  document.getElementById('filterNetwork').style.display = layerMode==='smooth'?'none':'';
+  document.getElementById('filterNetwork').style.display = (layerMode==='stress'||layerMode==='facility')?'':'none';
+  document.getElementById('filterRide').style.display    = layerMode==='ride'?'':'none';
   paint();
 };
 document.getElementById('modes').onclick = e => {
@@ -564,6 +926,8 @@ document.getElementById('modes').onclick = e => {
 document.getElementById('hideChip').onchange   = paint;
 document.getElementById('hideMinor').onchange  = paint;
 document.getElementById('goodToRide').onchange = paint;
+document.getElementById('hideStress').onchange = paint;
+document.getElementById('hideRough').onchange  = paint;
 document.getElementById('franklin').onclick    = () => map.fitBounds([[-104.9705,39.7395],[-104.9655,39.754]],{padding:80,duration:1200});
 
 // ── Field Guide panel ────────────────────────────────────────────────────
@@ -581,7 +945,6 @@ function closeGuidePanel() {
 }
 
 function renderGuideGrid() {
-  // Category chips
   const cats = document.getElementById('gp-cats');
   cats.innerHTML = '';
   const all = document.createElement('button');
@@ -597,7 +960,6 @@ function renderGuideGrid() {
     cats.appendChild(b);
   }
 
-  // Grid
   const grid = document.getElementById('gp-grid');
   grid.innerHTML = '';
   const terms = [...glossary.values()].filter(t => gpCat==='all' || t.category===gpCat);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Compute Level of Traffic Stress (LTS 1–4) for each conflated edge.
-// Also resolves pavement band from the best matched pavement record.
+// Also resolves pavement band, ride_class, surface, and confidence.
 // Run: npm run network:lts
 //
 // Input:  data/network/edges-matched.ndjson  (from conflate)
@@ -114,28 +114,35 @@ function computeLTS(edge) {
   const highway = tags.highway || '';
 
   const osmSpeed = parseOsmSpeed(tags.maxspeed);
-  const speed = osmSpeed ?? edge.speed_mph ?? SPEED_DEFAULTS[highway] ?? 35;
+  const drcogSpeed = edge.speed_mph ?? null;
+  const speed = osmSpeed ?? drcogSpeed ?? SPEED_DEFAULTS[highway] ?? 35;
+  const speed_src = osmSpeed != null ? 'osm' : drcogSpeed != null ? 'drcog' : 'default';
 
   const osmLanes = parseOsmLanes(tags);
   const lanes = osmLanes ?? LANE_DEFAULTS[highway] ?? 2;
+  const lanes_src = osmLanes != null ? 'osm' : 'default';
 
   const conflatedFac  = edge.facility?.type ?? null;
+  const conflatedFacSrc = edge.facility?.source ?? null;
   const osmFac        = osmFacilityType(tags);
   const facility_type = conflatedFac ?? osmFac;
+  // 'city' if from bike_denver or bike_drcog; 'osm' if derived from OSM tags only
+  const facility_src  = conflatedFacSrc ?? (osmFac ? 'osm' : null);
 
+  // speed_affects_lts: false if highway type or LTS1 facility overrides speed entirely
   if (LTS1_HWY.includes(highway)) {
-    return { lts: 1, speed, lanes, facility_type };
+    return { lts: 1, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: false };
   }
   if (facility_type && LTS1_FAC.includes(facility_type)) {
-    return { lts: 1, speed, lanes, facility_type };
+    return { lts: 1, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: false };
   }
 
   if (facility_type === 'buffered_lane') {
-    return { lts: applyRules(BUFFERED_RULES, speed, lanes), speed, lanes, facility_type };
+    return { lts: applyRules(BUFFERED_RULES, speed, lanes), speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: true };
   }
 
   if (facility_type === 'painted_lane' || facility_type === 'sharrow' || facility_type === 'sidepath') {
-    return { lts: applyRules(PAINTED_RULES, speed, lanes), speed, lanes, facility_type };
+    return { lts: applyRules(PAINTED_RULES, speed, lanes), speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: true };
   }
 
   // Mixed traffic — check highway class constraint
@@ -143,11 +150,82 @@ function computeLTS(edge) {
     if (rule.comment) continue;
     const classOk = rule.highway_classes.includes('*') || rule.highway_classes.includes(highway);
     if (speed <= rule.max_speed && lanes <= rule.max_lanes && classOk) {
-      return { lts: rule.lts, speed, lanes, facility_type };
+      return { lts: rule.lts, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: true };
     }
   }
 
-  return { lts: 4, speed, lanes, facility_type };
+  return { lts: 4, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts: true };
+}
+
+// ---------------------------------------------------------------------------
+// ride_class: path | lane | bikeway | calm | busy | hostile
+// ---------------------------------------------------------------------------
+
+const FAC_TO_RIDE_CLASS = {
+  shared_use_path:       'path',
+  protected_lane:        'path',
+  sidepath:              'path',
+  buffered_lane:         'lane',
+  painted_lane:          'lane',
+  neighborhood_bikeway:  'bikeway',
+  sharrow:               null,  // no real protection → falls through to LTS
+};
+
+function computeRideClass(facility_type, lts) {
+  if (facility_type) {
+    const cls = FAC_TO_RIDE_CLASS[facility_type];
+    if (cls) return cls;
+  }
+  if (lts <= 2) return 'calm';
+  if (lts === 3) return 'busy';
+  return 'hostile';
+}
+
+// ---------------------------------------------------------------------------
+// surface: fresh | smooth | fair | rough | none
+// ---------------------------------------------------------------------------
+
+function computeSurface(band) {
+  if (!band) return 'none';
+  if (band === 'fresh')                              return 'fresh';
+  if (band === 'excellent' || band === 'good')       return 'smooth';
+  if (band === 'fair')                               return 'fair';
+  return 'rough';  // poor, very_poor, failed
+}
+
+// ---------------------------------------------------------------------------
+// confidence: high | medium | low
+// Combines LTS provenance and surface data quality.
+// ---------------------------------------------------------------------------
+
+const SURF_CONF = {
+  treatment: 'high', iri: 'high',
+  'pci+iri': 'medium', pci: 'medium', oci: 'medium',
+  rating: 'low',
+};
+const CONF_RANK = { high: 2, medium: 1, low: 0 };
+
+function computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts) {
+  // LTS confidence
+  let lts_conf;
+  if (!speed_affects_lts) {
+    // Speed/lanes don't matter — confidence depends on how well we know the facility type
+    if (facility_src === 'bike_denver') lts_conf = 'high';
+    else lts_conf = 'medium'; // OSM infrastructure tags are reliable
+  } else if (speed_src === 'default' || lanes_src === 'default') {
+    lts_conf = 'low';
+  } else if (facility_src === 'osm') {
+    lts_conf = 'medium';
+  } else {
+    lts_conf = 'high';
+  }
+
+  // Surface confidence (null if no pavement data)
+  const surf_conf = pave_basis ? (SURF_CONF[pave_basis] ?? 'medium') : null;
+
+  // Combined: lower of the two (surface null → use LTS confidence)
+  if (!surf_conf) return lts_conf;
+  return CONF_RANK[lts_conf] <= CONF_RANK[surf_conf] ? lts_conf : surf_conf;
 }
 
 // ---------------------------------------------------------------------------
@@ -170,12 +248,19 @@ function main() {
   const edges = readNDJSON(inFile);
   console.log(`  ${edges.length.toLocaleString()} edges`);
 
-  const dist    = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  const facDist = {};
-  const bandDist = {};
+  const ltsDist    = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const facDist    = {};
+  const bandDist   = {};
+  const rideClsDist= {};
+  const surfDist   = {};
+  const confDist   = {};
+
+  // Speed provenance tracking for report
+  const speedSrcDist   = { osm: 0, drcog: 0, default: 0 };
+  const hwSpeedDefault = {};  // highway → count of default-speed edges
 
   const lines = edges.map(edge => {
-    const { lts, speed, lanes, facility_type } = computeLTS(edge);
+    const { lts, speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts } = computeLTS(edge);
 
     // Resolve pavement band from conflated best_record
     const bestRecord = edge.pavement?.best_record ?? null;
@@ -185,9 +270,22 @@ function main() {
     const pave_basis = scoring?.basis       ?? null;
     const pave_src   = bestRecord?.source   ?? null;
 
-    dist[lts]++;
+    const ride_class = computeRideClass(facility_type, lts);
+    const surface    = computeSurface(band);
+    const confidence = computeConfidence(speed_src, lanes_src, facility_src, pave_basis, speed_affects_lts);
+
+    // Tracking
+    ltsDist[lts]++;
+    speedSrcDist[speed_src]++;
+    if (speed_src === 'default') {
+      const hw = (edge.tags?.highway) || 'unknown';
+      hwSpeedDefault[hw] = (hwSpeedDefault[hw] || 0) + 1;
+    }
     if (facility_type) facDist[facility_type] = (facDist[facility_type] || 0) + 1;
-    if (band) bandDist[band] = (bandDist[band] || 0) + 1;
+    if (band)          bandDist[band]         = (bandDist[band] || 0) + 1;
+    rideClsDist[ride_class] = (rideClsDist[ride_class] || 0) + 1;
+    surfDist[surface]       = (surfDist[surface] || 0) + 1;
+    confDist[confidence]    = (confDist[confidence] || 0) + 1;
 
     const tags = edge.tags || {};
 
@@ -203,7 +301,12 @@ function main() {
         lts,
         speed_mph:     speed,
         lanes,
+        speed_src,
         facility_type: facility_type ?? null,
+        facility_src:  facility_src  ?? null,
+        ride_class,
+        surface,
+        confidence,
         band,
         skate_score,
         pave_basis,
@@ -216,12 +319,41 @@ function main() {
   console.log(`\nWrote ${edges.length.toLocaleString()} edges to edges-lts.ndjson`);
 
   const total = edges.length;
+
+  // ── LTS distribution ──────────────────────────────────────────────────────
   console.log('\nLTS distribution:');
   for (const lts of [1, 2, 3, 4]) {
-    const n = dist[lts] || 0;
+    const n = ltsDist[lts] || 0;
     const pct = (n / total * 100).toFixed(1);
     const bar = '█'.repeat(Math.round(n / total * 30));
     console.log(`  LTS ${lts}: ${n.toLocaleString().padStart(7)} (${pct.padStart(5)}%)  ${bar}`);
+  }
+
+  // ── Speed provenance report ───────────────────────────────────────────────
+  console.log('\nSpeed provenance (LTS input quality):');
+  for (const [src, n] of Object.entries(speedSrcDist)) {
+    const pct = (n / total * 100).toFixed(1);
+    console.log(`  ${src.padEnd(8)}: ${n.toLocaleString().padStart(7)} (${pct.padStart(5)}%)`);
+  }
+  console.log('\n  Top highway types using default speed:');
+  const topDefaults = Object.entries(hwSpeedDefault).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  for (const [hw, n] of topDefaults) {
+    console.log(`    ${hw.padEnd(20)} ${n.toLocaleString()}`);
+  }
+
+  // ── ride_class distribution ───────────────────────────────────────────────
+  console.log('\nRide class distribution:');
+  for (const [cls, n] of Object.entries(rideClsDist).sort((a, b) => b[1] - a[1])) {
+    const pct = (n / total * 100).toFixed(1);
+    console.log(`  ${cls.padEnd(10)}: ${n.toLocaleString().padStart(7)} (${pct.padStart(5)}%)`);
+  }
+
+  // ── Confidence distribution ───────────────────────────────────────────────
+  console.log('\nConfidence distribution:');
+  for (const conf of ['high', 'medium', 'low']) {
+    const n = confDist[conf] || 0;
+    const pct = (n / total * 100).toFixed(1);
+    console.log(`  ${conf.padEnd(8)}: ${n.toLocaleString().padStart(7)} (${pct.padStart(5)}%)`);
   }
 
   if (Object.keys(facDist).length) {
@@ -239,10 +371,12 @@ function main() {
     }
   }
 
-  const lts1pct = dist[1] / total;
-  const lts4pct = dist[4] / total;
+  const lts1pct = ltsDist[1] / total;
+  const lts4pct = ltsDist[4] / total;
+  const defPct  = speedSrcDist.default / total;
   if (lts1pct < 0.05) console.warn(`  ⚠ LTS 1 is only ${(lts1pct*100).toFixed(1)}% — check facility conflation`);
   if (lts4pct > 0.50) console.warn(`  ⚠ LTS 4 is ${(lts4pct*100).toFixed(1)}% — very high; check speed defaults`);
+  if (defPct > 0.60)  console.warn(`  ⚠ ${(defPct*100).toFixed(1)}% of edges use default speed — these render at low confidence`);
 
   console.log('\nRun: npm run network:build-tiles');
 }
