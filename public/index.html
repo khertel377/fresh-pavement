@@ -425,9 +425,41 @@ const laneW   = ['interpolate',['linear'],['zoom'],8,0.7,12,1.2,14,4,16,7];
 const pathW   = ['interpolate',['linear'],['zoom'],8,1.5,10,2.5,12,4,14,6,16,10];
 const casingW = ['interpolate',['linear'],['zoom'],8,3,10,4,12,6,14,9,16,14];
 
+
+// ── Zoom-expression helpers ───────────────────────────────────────────────
+// MapLibre only allows ['zoom'] as the input of a TOP-LEVEL interpolate/step, and only one
+// per expression. So we can't write ['*', zoomExpr, 2] or ['match', cls, 'a', zoomExpr, ...].
+// These helpers rewrite those into a single top-level zoom interpolate.
+function zoomStops(expr) {            // ['interpolate',['linear'],['zoom'],z0,v0,...] -> [[z,v],...]
+  const out = []; for (let i = 3; i < expr.length; i += 2) out.push([expr[i], expr[i+1]]); return out;
+}
+function evalStops(stops, z) {
+  if (z <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    const [z1, v1] = stops[i], [z0, v0] = stops[i-1];
+    if (z <= z1) return v0 + (v1 - v0) * (z - z0) / (z1 - z0);
+  }
+  return stops[stops.length-1][1];
+}
+function scaleZoom(expr, k) {          // zoomExpr × k
+  return ['interpolate',['linear'],['zoom'], ...zoomStops(expr).flatMap(([z,v]) => [z, +(v*k).toFixed(3)])];
+}
+function zoomByClass(classExprs, fallbackExpr, k = 1) {   // match(ride_class) of zoom exprs, × k
+  const all = [...Object.values(classExprs), fallbackExpr].map(zoomStops);
+  const zs = [...new Set(all.flat().map(([z]) => z))].sort((a,b) => a-b);
+  const out = ['interpolate',['linear'],['zoom']];
+  for (const z of zs) {
+    const m = ['match',['get','ride_class']];
+    for (const [cls, e] of Object.entries(classExprs)) m.push(cls, +(evalStops(zoomStops(e), z)*k).toFixed(3));
+    m.push(+(evalStops(zoomStops(fallbackExpr), z)*k).toFixed(3));
+    out.push(z, m);
+  }
+  return out;
+}
+
 // Per-class width for the single combined solid layer
-const classW  = ['match',['get','ride_class'],
-  'path',pathW,'lane',laneW,'bikeway',rideW,'calm',rideW,'busy',busyW,'hostile',busyW, rideW];
+const CLASS_W = {path:pathW, lane:laneW, bikeway:rideW, calm:rideW, busy:busyW, hostile:busyW};
+const classW  = zoomByClass(CLASS_W, rideW);
 
 // Solid color: pre-mixed toward BG so line-opacity stays 1 (no dot artifacts at joins).
 // Dedicated infra (path/lane/bikeway) dims only by surface — LTS confidence is about speed
@@ -629,7 +661,7 @@ map.on('load', async () => {
 
   map.addSource('pave',{type:'geojson',data:fc});
   map.addLayer({id:'seg-glow',type:'line',source:'pave',layout:{'line-cap':'round'},
-    paint:{'line-width':['*',lineW,3],'line-blur':4}});
+    paint:{'line-width':scaleZoom(lineW,3),'line-blur':4}});
   map.addLayer({id:'seg',type:'line',source:'pave',
     layout:{'line-cap':'round','line-join':'round'},paint:{'line-width':lineW}});
   map.addLayer({id:'hit',type:'line',source:'pave',paint:{'line-width':14,'line-opacity':0}});
@@ -653,7 +685,7 @@ map.on('load', async () => {
       // ── Stress/facility layers (existing) ───────────────────────────
       map.addLayer({id:'net-glow',type:'line',source:'network','source-layer':'network',
         layout:{'line-cap':'round',visibility:'none'},
-        paint:{'line-width':['*',lineW,3],'line-blur':4,'line-opacity':0.20}});
+        paint:{'line-width':scaleZoom(lineW,3),'line-blur':4,'line-opacity':0.20}});
       map.addLayer({id:'net',type:'line',source:'network','source-layer':'network',
         layout:{'line-cap':'round','line-join':'round',visibility:'none'},
         paint:{'line-width':lineW,'line-opacity':0.88}});
@@ -670,23 +702,13 @@ map.on('load', async () => {
         filter:['==',['get','surface'],'fresh'],
         layout:{'line-cap':'round',visibility:'none'},
         paint:{
-          'line-width': ['match',['get','ride_class'],'path',['*',pathW,2],'lane',['*',laneW,2],['*',rideW,2]],
+          'line-width': zoomByClass({path:pathW, lane:laneW}, rideW, 2),
           'line-color': ['match',['get','ride_class'],
             'path',dim(RIDE_COLORS.path,0.5),'lane',dim(RIDE_COLORS.lane,0.5),
             'bikeway',dim(RIDE_COLORS.bikeway,0.5),'calm',dim(RIDE_COLORS.calm,0.5),
             'busy',dim(RIDE_COLORS.busy,0.5),'hostile',dim(RIDE_COLORS.hostile,0.5), BG],
           'line-opacity': 1,
           'line-blur': 4,
-        }});
-
-      // Solid layer — all classes, all surfaces, line-opacity:1 (no dots)
-      // At z≥14 fair/rough edges render BG so grain sprites show through cleanly
-      map.addLayer({...SRC, id:'ride-solid',
-        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
-        paint:{
-          'line-width': classW,
-          'line-color': buildSolidColorExpr(false),
-          'line-opacity': 1,
         }});
 
       // Path casing — dark tube, only from z13
@@ -697,6 +719,16 @@ map.on('load', async () => {
         paint:{
           'line-width': casingW,
           'line-color': dim('#0a1a0e', ['*',confOpacityExpr,surfOpacityExpr]),
+          'line-opacity': 1,
+        }});
+
+      // Solid layer — all classes, all surfaces, line-opacity:1 (no dots)
+      // At z≥14 fair/rough edges render BG so grain sprites show through cleanly
+      map.addLayer({...SRC, id:'ride-solid',
+        layout:{'line-cap':'round','line-join':'round',visibility:'none'},
+        paint:{
+          'line-width': classW,
+          'line-color': buildSolidColorExpr(false),
           'line-opacity': 1,
         }});
 
