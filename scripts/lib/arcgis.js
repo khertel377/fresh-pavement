@@ -25,9 +25,10 @@ export async function fetchEditDate(serviceUrl) {
  * @param {string} layerUrl - Full layer URL (ends with /FeatureServer/N or /MapServer/N)
  * @param {object} opts
  * @param {string} opts.fields - Comma-separated field list, default '*'
- * @param {string} opts.where - WHERE clause, default '1=1'
+ * @param {string} opts.where    - WHERE clause, default '1=1'
+ * @param {string} opts.oidField - OID field name for orderByFields, default 'OBJECTID'
  */
-export async function fetchAllFeatures(layerUrl, { fields = '*', where = '1=1' } = {}) {
+export async function fetchAllFeatures(layerUrl, { fields = '*', where = '1=1', oidField = 'OBJECTID' } = {}) {
   const isMapServer = /\/MapServer\//i.test(layerUrl);
 
   // Get total count first
@@ -45,10 +46,11 @@ export async function fetchAllFeatures(layerUrl, { fields = '*', where = '1=1' }
     const fmt = isMapServer ? 'json' : 'geojson';
     const params = new URLSearchParams({
       where,
-      outFields: fields,
+      // omit outFields when '*' — some services reject the wildcard
+      ...(fields !== '*' ? { outFields: fields } : {}),
       outSR: '4326',
       geometryPrecision: '6',
-      orderByFields: 'OBJECTID',
+      orderByFields: oidField,
       resultOffset: String(offset),
       resultRecordCount: String(PAGE_SIZE),
       f: fmt,

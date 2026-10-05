@@ -13,5 +13,20 @@
     "lastEditDate": null,
     "fetchedAt": "2026-10-05",
     "count": 4993
+  },
+  "speed_drcog": {
+    "lastEditDate": 1753115667435,
+    "fetchedAt": "2026-10-05",
+    "count": 91176
+  },
+  "bike_denver": {
+    "lastEditDate": 1789746322008,
+    "fetchedAt": "2026-10-05",
+    "count": 822
+  },
+  "bike_drcog": {
+    "lastEditDate": 1781280643446,
+    "fetchedAt": "2026-10-05",
+    "count": 21946
   }
 }

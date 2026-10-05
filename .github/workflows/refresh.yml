@@ -27,6 +27,25 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install npm dependencies
+        run: npm install
+
+      # -----------------------------------------------------------------------
+      # System tools: osmium-tool and tippecanoe
+      # -----------------------------------------------------------------------
+      - name: Install osmium-tool
+        run: sudo apt-get install -y osmium-tool
+
+      - name: Install tippecanoe
+        run: |
+          sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+          git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j$(nproc)
+          sudo make -C /tmp/tippecanoe install
+
+      # -----------------------------------------------------------------------
+      # Pavement data pipeline
+      # -----------------------------------------------------------------------
       - name: Fetch data from ArcGIS sources
         run: npm run fetch
 
@@ -36,6 +55,33 @@ jobs:
       - name: Run score verification
         run: npm run check-scores
 
+      # -----------------------------------------------------------------------
+      # OSM network pipeline
+      # -----------------------------------------------------------------------
+      - name: Download OSM extract (Colorado, cached 30 days)
+        run: npm run network:download
+
+      - name: Extract metro bbox + filter to highway ways
+        run: npm run network:extract
+
+      - name: Split OSM ways into edges
+        run: npm run network:build-edges
+
+      - name: Conflate pavement, facilities, speed onto edges
+        run: npm run network:conflate
+
+      - name: Compute LTS scores
+        run: npm run network:lts
+
+      - name: Run LTS verification
+        run: npm run check-lts
+
+      - name: Build PMTiles
+        run: npm run network:build-tiles
+
+      # -----------------------------------------------------------------------
+      # Commit data files + deploy
+      # -----------------------------------------------------------------------
       - name: Commit updated data
         run: |
           git config user.name  "github-actions[bot]"

@@ -3,10 +3,21 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "fetch": "node scripts/fetch.js",
-    "build": "node scripts/build.js",
-    "preview": "npx -y serve public -l 3000",
-    "check-scores": "node scripts/check-scores.js"
+    "fetch":                "node scripts/fetch.js",
+    "build":                "node scripts/build.js",
+    "preview":              "npx -y serve public -l 3000",
+    "check-scores":         "node scripts/check-scores.js",
+    "check-lts":            "node scripts/check-lts.js",
+    "network:download":     "node scripts/network/download.js",
+    "network:extract":      "node scripts/network/extract.js",
+    "network:build-edges":  "node scripts/network/build-edges.js",
+    "network:conflate":     "node scripts/network/conflate.js",
+    "network:lts":          "node scripts/network/lts.js",
+    "network:build-tiles":  "node scripts/build-tiles.js",
+    "network:all":          "npm run network:download && npm run network:extract && npm run network:build-edges && npm run network:conflate && npm run network:lts && npm run network:build-tiles"
+  },
+  "dependencies": {
+    "flatbush": "^4.0.0"
   },
   "engines": {
     "node": ">=18"

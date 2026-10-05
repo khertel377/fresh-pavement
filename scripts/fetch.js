@@ -13,15 +13,19 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 import { fetchAllFeatures, fetchEditDate } from './lib/arcgis.js';
-import { normalize as normalizeDenver } from './adapters/denver.js';
-import { normalize as normalizeAurora } from './adapters/aurora.js';
-import { normalize as normalizeLakewood } from './adapters/lakewood.js';
+import { normalize as normalizeDenver }    from './adapters/denver.js';
+import { normalize as normalizeAurora }    from './adapters/aurora.js';
+import { normalize as normalizeLakewood }  from './adapters/lakewood.js';
+import { normalize as normalizeBikeDenver } from './adapters/bike-denver.js';
+import { normalize as normalizeBikeDRCOG } from './adapters/bike-drcog.js';
+import { normalize as normalizeSpeedDRCOG } from './adapters/speed-drcog.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NORMALIZED_DIR = join(ROOT, 'data/normalized');
 const META_FILE = join(ROOT, 'data/.meta.json');
 
 const SOURCES = [
+  // --- pavement (phase 1) ---
   {
     id: 'denver',
     url: 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/Denver_Pavement_Treatments/FeatureServer/428',
@@ -40,6 +44,30 @@ const SOURCES = [
     fields: 'OBJECTID,cg_Street,cg_FromStreet,cg_ToStreet,cg_EstimatedOCI,cg_CurrentInspectionOCI,cg_CurrentInspectionDate,lgSs_LAST_OVERLAY_YEAR,lgSs_NEXT_OVERLAY_YEAR,lgSs_LAST_CRACKSEAL_YEAR,lgSs_LAST_RECLAMITE_YEAR,lgSs_LAST_CONCRETE_YEAR',
     normalize: normalizeLakewood,
   },
+
+  // --- bike facilities (phase 3) ---
+  {
+    id: 'bike_denver',
+    url: 'https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/Denver_Bicycle_Facilities_ODC/FeatureServer/450',
+    fields: '*', // service rejects specific field lists; adapter picks what it needs
+    where: "DISPLAY_STATUS LIKE 'Existing Bikeway%'",
+    normalize: normalizeBikeDenver,
+  },
+  {
+    id: 'bike_drcog',
+    url: 'https://services2.arcgis.com/lCUrzfRwZYxmwIse/arcgis/rest/services/Bicycle_Facilities/FeatureServer/0',
+    fields: '*', // service rejects specific field lists; adapter picks what it needs
+    normalize: normalizeBikeDRCOG,
+  },
+
+  // --- speed limits (phase 3) ---
+  {
+    id: 'speed_drcog',
+    url: 'https://services2.arcgis.com/lCUrzfRwZYxmwIse/arcgis/rest/services/Regional_Speed_Limit/FeatureServer/0',
+    fields: 'FID,speed_limi,street_nam,data_sourc',
+    oidField: 'FID',   // this service uses FID instead of OBJECTID for pagination orderBy
+    normalize: normalizeSpeedDRCOG,
+  },
 ];
 
 function loadMeta() {
@@ -51,7 +79,7 @@ function saveMeta(meta) {
 }
 
 async function fetchSource(source, meta) {
-  const { id, url, fields, normalize } = source;
+  const { id, url, fields, where, oidField, normalize } = source;
   console.log(`\n[${id}]`);
 
   const lastEditDate = await fetchEditDate(url);
@@ -64,7 +92,7 @@ async function fetchSource(source, meta) {
   }
 
   console.log('  Fetching…');
-  const features = await fetchAllFeatures(url, { fields });
+  const features = await fetchAllFeatures(url, { fields, where, oidField });
 
   const records = features.map(f => normalize(f)).filter(Boolean);
   console.log(`  ${records.length.toLocaleString()} records normalized`);

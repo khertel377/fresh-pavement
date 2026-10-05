@@ -1,0 +1,67 @@
+{
+  "_note": "Level of Traffic Stress thresholds (Furth/Mekuria segment model). Edit here to retune without touching code. LTS 1 = comfortable for all ages/abilities; LTS 4 = only experienced cyclists.",
+
+  "_highway_note": "Default speed (mph) and lane count when OSM maxspeed / lanes tag is absent. Source: DRCOG speed limits fill gaps for ~61% of roads lacking OSM maxspeed.",
+  "highway_speed_defaults": {
+    "living_street":   20,
+    "service":         15,
+    "residential":     25,
+    "unclassified":    25,
+    "tertiary_link":   25,
+    "tertiary":        30,
+    "secondary_link":  30,
+    "secondary":       35,
+    "primary_link":    35,
+    "primary":         40,
+    "cycleway":         0,
+    "path":             0
+  },
+  "highway_lane_defaults": {
+    "living_street":   2,
+    "service":         2,
+    "residential":     2,
+    "unclassified":    2,
+    "tertiary_link":   2,
+    "tertiary":        2,
+    "secondary_link":  2,
+    "secondary":       4,
+    "primary_link":    2,
+    "primary":         4,
+    "cycleway":        0,
+    "path":            0
+  },
+
+  "_lts1_note": "Facility types that are LTS 1 regardless of speed/lanes.",
+  "lts1_facility_types": ["shared_use_path", "protected_lane", "neighborhood_bikeway", "unpaved_path"],
+  "lts1_highway_types":  ["cycleway", "path", "living_street"],
+
+  "_mixed_note": "Mixed-traffic rules. Evaluated in order; first match wins.",
+  "mixed_traffic_rules": [
+    { "lts": 1, "max_speed": 25, "max_lanes": 2, "highway_classes": ["residential", "living_street", "unclassified", "service"] },
+    { "lts": 2, "max_speed": 30, "max_lanes": 2, "highway_classes": ["residential", "unclassified"] },
+    { "lts": 3, "max_speed": 30, "max_lanes": 999, "highway_classes": ["*"] },
+    { "lts": 4, "comment": "speed >= 35 or lanes >= 4 on anything not already matched" }
+  ],
+
+  "_lane_note": "Painted/buffered lane rules. buffered_lane is one LTS better than painted at the same speed/lanes.",
+  "painted_lane_rules": [
+    { "lts": 2, "max_speed": 25, "max_lanes": 2 },
+    { "lts": 3, "max_speed": 35, "max_lanes": 4 },
+    { "lts": 4, "comment": "anything else" }
+  ],
+  "buffered_lane_rules": [
+    { "lts": 1, "max_speed": 25, "max_lanes": 2 },
+    { "lts": 2, "max_speed": 35, "max_lanes": 4 },
+    { "lts": 3, "comment": "anything else" }
+  ],
+
+  "_drop_note": "Highway types to exclude from the network (not relevant for surface-quality or bike routing).",
+  "drop_highway_types": ["motorway", "motorway_link", "trunk", "trunk_link", "footway", "steps", "pedestrian", "corridor", "elevator"],
+  "drop_service_types": ["driveway", "parking_aisle", "emergency_access"],
+
+  "_bbox_note": "Metro extract bounding box: west, south, east, north.",
+  "metro_bbox": [-105.35, 39.45, -104.55, 39.95],
+
+  "_osm_tags_note": "Tags to keep on edges (everything else is stripped to reduce size).",
+  "keep_tags": ["name", "highway", "lanes", "lanes:forward", "lanes:backward", "maxspeed", "oneway", "surface", "smoothness", "cycleway", "cycleway:left", "cycleway:right", "cycleway:both", "bicycle", "parking:lane:left", "parking:lane:right", "sidewalk", "lit", "access"]
+}
