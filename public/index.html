@@ -290,7 +290,7 @@ const BG = '#121417'; // map background — used for pre-mixed dimming
 
 const RIDE_COLORS = {
   path:    '#3fd68f',
-  lane:    '#2fb878', // slightly deeper green — distinguishable from path
+  lane:    '#3fd68f', // same green as path — width + casing does the differentiating
   bikeway: '#9fe6bf',
   calm:    '#d9d4c7',
   busy:    '#e8a33d',
@@ -418,26 +418,28 @@ const surfOpacityExpr = ['match',['get','surface'],'fresh',1.0,'smooth',1.0,'fai
 // Calm amount: keep a minimum of 0.45 so the street grid never disappears
 const calmAmount = ['max', ['*', confOpacityExpr, surfOpacityExpr], 0.45];
 
-// Widths — lane/bikeway thinner below z12
+// Widths
 const rideW   = ['interpolate',['linear'],['zoom'],8,0.8,12,1.2,14,2.5,16,5];
 const busyW   = ['interpolate',['linear'],['zoom'],8,1.0,12,1.5,14,3,16,6];
-const laneW   = ['interpolate',['linear'],['zoom'],8,0.8,12,1.5,14,5,16,9];
-const pathW   = ['interpolate',['linear'],['zoom'],8,2,10,3,12,5,14,8,16,14];
-const casingW = ['interpolate',['linear'],['zoom'],8,4,10,5,12,8,14,12,16,20];
+const laneW   = ['interpolate',['linear'],['zoom'],8,0.7,12,1.2,14,4,16,7];
+const pathW   = ['interpolate',['linear'],['zoom'],8,1.5,10,2.5,12,4,14,6,16,10];
+const casingW = ['interpolate',['linear'],['zoom'],8,3,10,4,12,6,14,9,16,14];
 
 // Per-class width for the single combined solid layer
 const classW  = ['match',['get','ride_class'],
   'path',pathW,'lane',laneW,'bikeway',rideW,'calm',rideW,'busy',busyW,'hostile',busyW, rideW];
 
 // Solid color: pre-mixed toward BG so line-opacity stays 1 (no dot artifacts at joins).
+// Dedicated infra (path/lane/bikeway) dims only by surface — LTS confidence is about speed
+// data quality on roads, not about whether the path exists.
 function buildSolidColorExpr(hideStress) {
-  const baseAmt = ['*', confOpacityExpr, surfOpacityExpr];
-  const stressAmt = hideStress ? ['*', baseAmt, 0.12] : baseAmt;
+  const roadAmt  = ['*', confOpacityExpr, surfOpacityExpr];
+  const stressAmt = hideStress ? ['*', roadAmt, 0.12] : roadAmt;
 
   return ['match', ['get','ride_class'],
-    'path',    dim(RIDE_COLORS.path,    baseAmt),
-    'lane',    dim(RIDE_COLORS.lane,    baseAmt),
-    'bikeway', dim(RIDE_COLORS.bikeway, baseAmt),
+    'path',    dim(RIDE_COLORS.path,    surfOpacityExpr),
+    'lane',    dim(RIDE_COLORS.lane,    surfOpacityExpr),
+    'bikeway', dim(RIDE_COLORS.bikeway, surfOpacityExpr),
     'calm',    dim(RIDE_COLORS.calm,    calmAmount),
     'busy',    dim(RIDE_COLORS.busy,    stressAmt),
     'hostile', dim(RIDE_COLORS.hostile, stressAmt),
