@@ -20,7 +20,14 @@
     "fine_gravel", "compacted", "wood", "woodchips"
   ],
 
-  "_restricted_areas": "OSM area tag pairs whose interior edges are rideable=restricted unless the way itself says bicycle=yes|designated|permissive. Requires data/osm/areas.ndjson from npm run network:extract-areas (not yet implemented — way-level tags cover the common cases).",
+  "_park_areas": "OSM area tag pairs that identify public parks / natural areas. Untagged highway=footway INSIDE one of these becomes rideable=yes with confidence=low instead of rideable=no. Requires data/osm/areas.ndjson from npm run network:extract-areas.",
+  "park_area_tags": [
+    { "key": "leisure", "value": "park" },
+    { "key": "leisure", "value": "nature_reserve" },
+    { "key": "landuse", "value": "recreation_ground" }
+  ],
+
+  "_restricted_areas": "OSM area tag pairs whose interior edges are rideable=restricted unless the way itself says bicycle=yes|designated|permissive. Requires data/osm/areas.ndjson from npm run network:extract-areas.",
   "restricted_area_tags": [
     { "key": "leisure",   "value": "golf_course" },
     { "key": "landuse",   "value": "cemetery" },

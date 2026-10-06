@@ -267,6 +267,8 @@ function main() {
     const rideable      = edge.rideable      ?? 'yes';
     const car_free      = edge.car_free      ?? false;
     const access_reason = edge.access_reason ?? null;
+    const access_note   = edge.access_note   ?? null;
+    const context_area  = edge.context_area  ?? null;
 
     const ltsCmp = computeLTS(edge);
     const { speed, lanes, speed_src, lanes_src, facility_type, facility_src, speed_affects_lts } = ltsCmp;
@@ -288,7 +290,8 @@ function main() {
     if (car_free) {
       lts        = 1;
       ride_class  = 'path';
-      confidence  = 'high';
+      // Untagged park footways: car-free but bicycle access was inferred, not confirmed
+      confidence  = access_note === 'untagged' ? 'low' : 'high';
     }
 
     // Tracking
@@ -331,6 +334,8 @@ function main() {
         rideable,
         car_free,
         access_reason,
+        access_note,
+        context_area,
       },
     });
   });

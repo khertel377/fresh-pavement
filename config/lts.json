@@ -56,7 +56,7 @@
   ],
 
   "_drop_note": "Highway types to exclude from the network (not relevant for surface-quality or bike routing).",
-  "drop_highway_types": ["motorway", "motorway_link", "trunk", "trunk_link", "footway", "steps", "pedestrian", "corridor", "elevator"],
+  "drop_highway_types": ["motorway", "motorway_link", "trunk", "trunk_link", "steps", "corridor", "elevator"],
   "drop_service_types": ["driveway", "parking_aisle", "emergency_access"],
 
   "_bbox_note": "Metro extract bounding box: west, south, east, north.",

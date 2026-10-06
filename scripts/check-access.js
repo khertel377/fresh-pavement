@@ -14,6 +14,22 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Spot checks: name regex → expected properties on the dominant matching edge.
 // All fields are checked against e.properties.xxx.
 const CHECKS = [
+  // Bbox checks: zero rideable=yes edges inside restricted area bboxes
+  // (these test polygon-based classification; require network:extract-areas)
+  {
+    desc:   'Denver Botanic Gardens — no rideable paths inside bbox',
+    bbox:   [-104.9625, 39.7270, -104.9565, 39.7320],  // approx. E 13th/York area
+    expect: { rideable_yes_count: 0 },
+    bboxCheck: true,
+    note:   'access=customers paths + polygon context → restricted or no',
+  },
+  {
+    desc:   'City Park Golf Course — no rideable paths inside bbox',
+    bbox:   [-104.9555, 39.7405, -104.9440, 39.7500],  // north City Park
+    expect: { rideable_yes_count: 0 },
+    bboxCheck: true,
+    note:   'golf=* tags + leisure=golf_course polygon → rideable=no/restricted',
+  },
   {
     desc:    'Cheesman Park Road — car-free, path family, LTS 1, high confidence',
     name:    /cheesman park/i,
@@ -69,6 +85,30 @@ function main() {
   let pass = 0, fail = 0, skip = 0;
 
   for (const check of CHECKS) {
+    // Bbox check: count rideable=yes edges whose midpoint falls inside the bbox
+    if (check.bboxCheck) {
+      const [minLon, minLat, maxLon, maxLat] = check.bbox;
+      const inside = features.filter(f => {
+        const coords = f.geometry?.coordinates;
+        if (!coords?.length) return false;
+        const [lon, lat] = coords[Math.floor(coords.length / 2)];
+        return lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat;
+      });
+      if (inside.length === 0) {
+        console.log(`  ⚠ SKIP  ${check.desc}`);
+        console.log(`         No edges in bbox — needs network rebuild with extract-areas\n`);
+        skip++;
+        continue;
+      }
+      const yesCount = inside.filter(f => (f.properties?.rideable ?? 'yes') === 'yes').length;
+      const ok = yesCount === 0;
+      console.log(`  ${ok ? '✓ PASS' : '✗ FAIL'}  ${check.desc}`);
+      console.log(`         ${inside.length} edges in bbox: rideable=yes ${yesCount}, restricted ${inside.filter(f=>f.properties?.rideable==='restricted').length}, no ${inside.filter(f=>f.properties?.rideable==='no').length}`);
+      console.log(`         ${check.note}\n`);
+      ok ? pass++ : fail++;
+      continue;
+    }
+
     let matches;
     if (check.name) {
       matches = features.filter(f => check.name.test(f.properties?.name || ''));

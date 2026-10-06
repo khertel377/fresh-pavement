@@ -70,11 +70,20 @@ jobs:
       - name: Conflate pavement, facilities, speed onto edges
         run: npm run network:conflate
 
+      - name: Extract OSM area polygons (parks, golf courses, restricted areas)
+        run: npm run network:extract-areas
+
+      - name: Classify access (rideable, car_free, restricted)
+        run: npm run network:access
+
       - name: Compute LTS scores
         run: npm run network:lts
 
       - name: Run LTS verification
         run: npm run check-lts
+
+      - name: Run access verification
+        run: npm run check-access
 
       - name: Build PMTiles
         run: npm run network:build-tiles
